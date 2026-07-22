@@ -2,15 +2,19 @@
   font-family: -apple-system, "SF Pro Text", Inter, Helvetica, Arial, sans-serif;
   font-size: 14px;
   color-scheme: dark;
-  --bg: #14161c;
-  --bg-panel: #1a1d25;
-  --bg-raised: #21252f;
-  --border: #2c3140;
-  --text: #d7dce5;
-  --muted: #6b7385;
-  --accent: #7aa2f7;
-  --ok: #7fd88f;
-  --err: #f77a7a;
+  /* Warm charcoal base with a burnt-orange / brown accent. */
+  --bg: #171412;
+  --bg-panel: #1e1a17;
+  --bg-raised: #26201a;
+  --border: #382d24;
+  --text: #e7ded5;
+  --muted: #9a8b7d;
+  --accent: #d2782f;
+  --accent-strong: #b45f22;
+  --accent-soft: rgba(210, 120, 47, 0.16);
+  --on-accent: #1a1108;
+  --ok: #93bf6e;
+  --err: #e0705c;
 }
 
 * {
@@ -41,6 +45,9 @@ body,
 }
 
 button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font: inherit;
   color: var(--text);
   background: var(--bg-raised);
@@ -48,10 +55,23 @@ button {
   border-radius: 6px;
   padding: 5px 12px;
   cursor: pointer;
+  /* Thai labels are longer than the English ones and used to wrap a button
+     onto three lines; the toolbar wraps as a whole instead. */
+  white-space: nowrap;
 }
 
 button:hover:not(:disabled) {
   border-color: var(--accent);
+}
+
+/* One consistent focus ring; the browser default is invisible on this palette. */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+.tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 button:disabled {
@@ -61,9 +81,53 @@ button:disabled {
 
 button.primary {
   background: var(--accent);
-  border-color: var(--accent);
-  color: #10131a;
+  border-color: var(--accent-strong);
+  color: var(--on-accent);
   font-weight: 600;
+}
+
+button.primary:hover:not(:disabled) {
+  background: var(--accent-strong);
+}
+
+/* Square button holding a single icon. */
+button.icon-only {
+  padding: 5px 7px;
+}
+
+/* Continuous spin for the in-progress icon. */
+.spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Input with a trailing affordance (the API-key reveal). */
+.input-with-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-with-button input {
+  padding-right: 36px;
+}
+
+.input-with-button .reveal {
+  position: absolute;
+  right: 4px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 4px 5px;
+}
+
+.input-with-button .reveal:hover {
+  color: var(--accent);
 }
 
 button.danger:hover:not(:disabled) {
@@ -92,16 +156,46 @@ textarea:focus {
 .toolbar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
 }
 
+/* The spacer only pushes things apart while everything fits on one row. */
+.toolbar .spacer {
+  min-width: 8px;
+}
+
+.app-logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  object-fit: contain;
+}
+
 .app-title {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
   font-weight: 700;
   letter-spacing: 0.02em;
   margin-right: 8px;
+}
+
+.app-version {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.project-badge {
+  font-size: 11px;
+  max-width: 220px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 /* Player + waveform */
@@ -172,7 +266,7 @@ textarea:focus {
 /* Sidebar layout — player in its own column, which suits 9:16 video. */
 .app.layout-side {
   display: grid;
-  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-columns: var(--sidebar-w) 6px minmax(0, 1fr);
   grid-template-rows: auto minmax(0, 1fr);
 }
 
@@ -193,8 +287,14 @@ textarea:focus {
   max-height: none;
 }
 
-.layout-side .body {
+.layout-side .splitter-sidebar {
+  display: block;
   grid-column: 2;
+  grid-row: 2;
+}
+
+.layout-side .body {
+  grid-column: 3;
   grid-row: 2;
 }
 
@@ -251,7 +351,7 @@ textarea:focus {
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  padding: 8px 10px;
+  padding: 6px 9px;
 }
 
 .block.active {
@@ -261,8 +361,9 @@ textarea:focus {
 .block-head {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 3px;
 }
 
 .block-head button {
@@ -320,15 +421,21 @@ textarea:focus {
 
 .block textarea {
   resize: vertical;
-  min-height: 38px;
+  min-height: 34px;
+  line-height: 1.4;
   border: none;
   background: transparent;
-  padding: 2px 4px;
+  padding: 1px 4px;
+}
+
+.block-list {
+  gap: 8px;
 }
 
 /* Process panel */
 .process-panel {
-  width: 320px;
+  width: var(--process-w);
+  flex-shrink: 0;
   border-left: 1px solid var(--border);
   background: var(--bg-panel);
   display: flex;
@@ -427,5 +534,353 @@ textarea:focus {
 
 .modal-actions {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+}
+
+/* Resizable panes */
+.splitter {
+  flex: 0 0 6px;
+  cursor: col-resize;
+  background: transparent;
+  border-left: 1px solid var(--border);
+  touch-action: none;
+}
+
+/* Only the sidebar layout has a player column to resize. */
+.splitter-sidebar {
+  display: none;
+}
+
+.splitter:hover,
+.splitter.dragging {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+}
+
+/* Projects dialog */
+.modal h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.project {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.project.current {
+  border-color: var(--accent);
+}
+
+.project-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.project-main span {
+  font-size: 11px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.form-error {
+  margin: 0;
+  color: var(--err);
+  font-size: 12px;
+}
+
+.form-ok {
+  margin: 0;
+  color: var(--ok);
+  font-size: 12px;
+}
+
+/* Settings tabs */
+.modal.modal-wide {
+  width: 620px;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+button.tab {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  padding: 6px 10px;
+  color: var(--muted);
+}
+
+button.tab:hover:not(:disabled) {
+  color: var(--text);
+}
+
+button.tab.current {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.tab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 320px;
+}
+
+.modal select {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+.modal small {
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* Checkbox rows read left to right, unlike the stacked field labels. */
+.modal label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+}
+
+.modal label.check input {
+  width: auto;
+}
+
+/* Input with a button beside it (model + Detect). */
+.field-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.field-row button {
+  flex-shrink: 0;
+}
+
+.language-picker {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.language-picker legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 4px;
+}
+
+.language-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 4px 10px;
+  max-height: 190px;
+  overflow-y: auto;
+}
+
+.language-grid label {
+  font-size: 12px;
+}
+
+/* Drop-down menu (export) */
+.menu-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  min-width: 240px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.menu button {
+  justify-content: flex-start;
+  background: transparent;
+  border-color: transparent;
+  white-space: nowrap;
+}
+
+.menu button:hover:not(:disabled) {
+  background: var(--bg-raised);
+}
+
+.menu-note {
+  padding: 6px 12px;
+  font-size: 11px;
+}
+
+/* Translations under the source text. Deliberately tight: a block with four
+   languages should still read as one block, not as five stacked fields. */
+.block-translation {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  padding-left: 5px;
+  border-left: 2px solid var(--accent-soft);
+}
+
+.block-translation + .block-translation {
+  margin-top: 1px;
+}
+
+.lang-tag {
+  flex-shrink: 0;
+  min-width: 38px;
+  font-size: 10px;
+  line-height: 1.2;
+  color: var(--accent);
+  letter-spacing: 0.02em;
+}
+
+.block-translation textarea {
+  min-height: 0;
+  height: auto;
+  padding: 1px 4px;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--muted);
+  resize: none;
+  overflow: hidden;
+}
+
+.block-translation textarea:focus {
+  color: var(--text);
+  resize: vertical;
+  overflow: auto;
+}
+
+/* Second overlay line for the translated subtitle. */
+.subtitle-overlay {
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.subtitle-overlay span.translated {
+  font-size: 13px;
+  font-weight: 500;
+  color: #f4dcc6;
+}
+
+/* About dialog */
+.modal.modal-narrow {
+  width: 420px;
+}
+
+.about-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.about-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 9px;
+  object-fit: contain;
+}
+
+.about-head p {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+.about-grid {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.about-grid > div {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.about-grid dt {
+  flex: 0 0 116px;
+}
+
+.about-grid dd {
+  margin: 0;
+  min-width: 0;
+  word-break: break-word;
+  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+}
+
+/* Scrollbars: the default light ones cut through the dark panels. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* Drag-and-drop */
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  background: rgba(23, 20, 18, 0.78);
+  border: 2px dashed var(--accent);
+  pointer-events: none;
+}
+
+.wave-status {
+  margin: 6px 0 0;
+  font-size: 11px;
 }

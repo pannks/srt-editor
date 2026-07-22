@@ -5,6 +5,11 @@ export interface SubtitleBlock {
   /** end time in seconds */
   end: number;
   text: string;
+  /**
+   * Translations of `text`, keyed by ISO language code. Absent until the block
+   * has been translated; a language is absent until that language has run.
+   */
+  translations?: Record<string, string>;
 }
 
 let counter = 0;

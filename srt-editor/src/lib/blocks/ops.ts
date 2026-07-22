@@ -11,6 +11,28 @@ function indexOfBlock(blocks: SubtitleBlock[], id: string): number {
   return i;
 }
 
+/**
+ * Join the two blocks' translations language by language. A language only one
+ * side has is carried over as-is, so merging never silently drops a line.
+ */
+function mergeTranslations(
+  a: SubtitleBlock,
+  b: SubtitleBlock,
+): Record<string, string> | undefined {
+  const codes = new Set([
+    ...Object.keys(a.translations ?? {}),
+    ...Object.keys(b.translations ?? {}),
+  ]);
+  if (codes.size === 0) return undefined;
+  const merged: Record<string, string> = {};
+  for (const code of codes) {
+    merged[code] = `${a.translations?.[code]?.trim() ?? ""} ${
+      b.translations?.[code]?.trim() ?? ""
+    }`.trim();
+  }
+  return merged;
+}
+
 /** Merge the block into the one before it: previous block absorbs text and end time. */
 export function mergeWithPrevious(
   blocks: SubtitleBlock[],
@@ -24,6 +46,7 @@ export function mergeWithPrevious(
     ...prev,
     end: Math.max(prev.end, cur.end),
     text: `${prev.text.trim()} ${cur.text.trim()}`.trim(),
+    translations: mergeTranslations(prev, cur),
   };
   return [...blocks.slice(0, i - 1), merged, ...blocks.slice(i + 1)];
 }
@@ -60,7 +83,14 @@ export function splitBlock(
   const secondText = words.slice(at).join(" ");
   const ratio = firstText.length / (firstText.length + secondText.length);
   const cutTime = cur.start + (cur.end - cur.start) * ratio;
-  const first: SubtitleBlock = { ...cur, end: cutTime, text: firstText };
+  // A translation of the whole line does not survive being cut in two, and
+  // leaving half of it on one side would read as a translation of that half.
+  const first: SubtitleBlock = {
+    ...cur,
+    end: cutTime,
+    text: firstText,
+    translations: undefined,
+  };
   const second: SubtitleBlock = {
     id: newBlockId(),
     start: cutTime,
@@ -68,6 +98,64 @@ export function splitBlock(
     text: secondText,
   };
   return [...blocks.slice(0, i), first, second, ...blocks.slice(i + 1)];
+}
+
+/**
+ * Cut a block in two at an exact caret position in its text. Unlike
+ * `splitBlock` the caret may sit anywhere, mid-word included; whitespace at the
+ * cut is dropped. Time splits proportionally to the characters on each side,
+ * with both halves kept at `MIN_BLOCK_DURATION` where the block is long enough.
+ * No-op when either side would be empty.
+ */
+export function splitBlockAtChar(
+  blocks: SubtitleBlock[],
+  id: string,
+  charIndex: number,
+): SubtitleBlock[] {
+  const i = indexOfBlock(blocks, id);
+  const cur = blocks[i];
+  const at = Math.min(Math.max(0, charIndex), cur.text.length);
+  const firstText = cur.text.slice(0, at).trim();
+  const secondText = cur.text.slice(at).trim();
+  if (firstText === "" || secondText === "") return blocks;
+
+  const ratio = firstText.length / (firstText.length + secondText.length);
+  const lower = cur.start + MIN_BLOCK_DURATION;
+  const upper = Math.max(lower, cur.end - MIN_BLOCK_DURATION);
+  const cutTime = roundMs(
+    Math.min(Math.max(cur.start + (cur.end - cur.start) * ratio, lower), upper),
+  );
+
+  const first: SubtitleBlock = {
+    ...cur,
+    end: cutTime,
+    text: firstText,
+    translations: undefined,
+  };
+  const second: SubtitleBlock = {
+    id: newBlockId(),
+    start: cutTime,
+    end: cur.end,
+    text: secondText,
+  };
+  return [...blocks.slice(0, i), first, second, ...blocks.slice(i + 1)];
+}
+
+/**
+ * What the Cut button does: split at the caret when the caret has text on both
+ * sides, otherwise fall back to the middle word so the button always does
+ * something useful.
+ */
+export function cutBlockAtCaret(
+  blocks: SubtitleBlock[],
+  id: string,
+  caret: number | null,
+): SubtitleBlock[] {
+  if (caret != null) {
+    const out = splitBlockAtChar(blocks, id, caret);
+    if (out !== blocks) return out;
+  }
+  return splitBlock(blocks, id);
 }
 
 /**
@@ -118,6 +206,26 @@ export function updateBlockText(
 ): SubtitleBlock[] {
   const i = indexOfBlock(blocks, id);
   return blocks.map((b, j) => (j === i ? { ...b, text } : b));
+}
+
+/** Hand-edit one language's line on one block. Blank removes that language. */
+export function updateBlockTranslation(
+  blocks: SubtitleBlock[],
+  id: string,
+  lang: string,
+  text: string,
+): SubtitleBlock[] {
+  const i = indexOfBlock(blocks, id);
+  return blocks.map((b, j) => {
+    if (j !== i) return b;
+    const translations = { ...b.translations, [lang]: text };
+    if (text.trim() === "") delete translations[lang];
+    return {
+      ...b,
+      translations:
+        Object.keys(translations).length > 0 ? translations : undefined,
+    };
+  });
 }
 
 export function removeBlock(

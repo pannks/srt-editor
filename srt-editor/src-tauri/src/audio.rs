@@ -70,6 +70,128 @@ pub fn check_ffmpeg() -> Result<String, String> {
         .to_string())
 }
 
+/// Waveform envelope for the player, one value per bucket in the range 0..1.
+#[derive(Serialize, Debug)]
+#[serde(rename_all = "camelCase")]
+pub struct Waveform {
+    pub peaks: Vec<f32>,
+    pub duration_sec: f64,
+}
+
+/// Sample rate the envelope is decoded at — far below audible, but 2 kHz still
+/// puts ~130 samples in the shortest bucket we produce.
+const PEAK_SAMPLE_RATE: u32 = 2000;
+
+/// Which bucket a sample index belongs to, clamped to the last bucket so a
+/// stream that runs longer than `ffprobe` predicted cannot go out of range.
+fn bucket_of(sample: u64, total: u64, buckets: usize) -> usize {
+    if total == 0 || buckets == 0 {
+        return 0;
+    }
+    ((sample * buckets as u64) / total).min(buckets as u64 - 1) as usize
+}
+
+/// Decode the audio track with ffmpeg and fold it into a peak envelope.
+///
+/// The webview cannot do this itself: wavesurfer decodes with the browser's
+/// `decodeAudioData`, which rejects most video containers (mkv, avi, opus in
+/// webm), leaving the waveform empty. ffmpeg reads all of them.
+#[tauri::command]
+pub fn waveform_peaks(
+    app: AppHandle,
+    input_path: String,
+    buckets: u32,
+) -> Result<Waveform, String> {
+    let wave = decode_peaks(&input_path, buckets, |m| emit_log(&app, m))?;
+    emit_log(&app, "Waveform ready");
+    Ok(wave)
+}
+
+/// The body of `waveform_peaks`, free of the Tauri handle so it can be tested.
+pub fn decode_peaks(
+    input_path: &str,
+    buckets: u32,
+    log: impl Fn(&str),
+) -> Result<Waveform, String> {
+    use std::io::Read;
+
+    let buckets = buckets.clamp(200, 40_000) as usize;
+    let duration_sec = ffprobe_duration(input_path)?;
+    log(&format!(
+        "Reading waveform ({duration_sec:.1}s, {buckets} buckets)…"
+    ));
+
+    let mut child = Command::new(resolve_bin("ffmpeg"))
+        .args([
+            "-hide_banner",
+            "-v",
+            "error",
+            "-i",
+            input_path,
+            "-vn",
+            "-ac",
+            "1",
+            "-ar",
+            &PEAK_SAMPLE_RATE.to_string(),
+            "-f",
+            "f32le",
+            "-",
+        ])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("failed to run ffmpeg: {e}"))?;
+
+    let mut stdout = child.stdout.take().expect("stdout piped above");
+    let total_samples = (duration_sec * PEAK_SAMPLE_RATE as f64).max(1.0) as u64;
+    let mut peaks = vec![0f32; buckets];
+    // Read the raw stream rather than collecting it: an hour of audio is tens of
+    // megabytes, and only the running maximum per bucket is ever needed.
+    let mut buf = [0u8; 16 * 1024];
+    let mut carry: Vec<u8> = Vec::with_capacity(4);
+    let mut index: u64 = 0;
+
+    loop {
+        let read = stdout
+            .read(&mut buf)
+            .map_err(|e| format!("cannot read ffmpeg output: {e}"))?;
+        if read == 0 {
+            break;
+        }
+        carry.extend_from_slice(&buf[..read]);
+        let usable = carry.len() - carry.len() % 4;
+        for frame in carry[..usable].chunks_exact(4) {
+            let value = f32::from_le_bytes([frame[0], frame[1], frame[2], frame[3]]).abs();
+            let bucket = bucket_of(index, total_samples, buckets);
+            if value > peaks[bucket] {
+                peaks[bucket] = value;
+            }
+            index += 1;
+        }
+        carry.drain(..usable);
+    }
+
+    let status = child
+        .wait()
+        .map_err(|e| format!("ffmpeg did not exit cleanly: {e}"))?;
+    if !status.success() || index == 0 {
+        let mut stderr = String::new();
+        if let Some(mut pipe) = child.stderr.take() {
+            let _ = pipe.read_to_string(&mut stderr);
+        }
+        let tail: Vec<&str> = stderr.lines().rev().take(3).collect();
+        return Err(format!(
+            "no audio track to draw: {}",
+            tail.into_iter().rev().collect::<Vec<_>>().join(" | ")
+        ));
+    }
+
+    Ok(Waveform {
+        peaks,
+        duration_sec,
+    })
+}
+
 /// Extract the audio track as mono 16 kHz WAV and split it into fixed-length chunks.
 #[tauri::command]
 pub fn extract_audio_chunks(
@@ -155,4 +277,28 @@ pub fn extract_audio_chunks(
         });
     }
     Ok(chunks)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::bucket_of;
+
+    #[test]
+    fn spreads_samples_evenly_across_buckets() {
+        assert_eq!(bucket_of(0, 100, 10), 0);
+        assert_eq!(bucket_of(9, 100, 10), 0);
+        assert_eq!(bucket_of(10, 100, 10), 1);
+        assert_eq!(bucket_of(99, 100, 10), 9);
+    }
+
+    #[test]
+    fn clamps_a_stream_longer_than_ffprobe_predicted() {
+        assert_eq!(bucket_of(250, 100, 10), 9);
+    }
+
+    #[test]
+    fn survives_degenerate_input() {
+        assert_eq!(bucket_of(5, 0, 10), 0);
+        assert_eq!(bucket_of(5, 100, 0), 0);
+    }
 }

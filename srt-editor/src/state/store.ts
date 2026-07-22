@@ -4,15 +4,29 @@ import {
   mergeWithPrevious,
   mergeWithNext,
   splitBlock,
+  cutBlockAtCaret,
   setBlockTimes,
   updateBlockText,
+  updateBlockTranslation,
   removeBlock,
 } from "../lib/blocks/ops";
+import { applyTranslations, stripLanguage } from "../lib/translate/batch";
+import {
+  DEFAULT_TRANSLATION,
+  type TranslationSettings,
+} from "../lib/translate/types";
 import {
   DEFAULT_CHUNK_SECS,
   DEFAULT_MODEL,
   DEFAULT_PROMPT,
 } from "../lib/gemini/prompt";
+import {
+  DEFAULT_EXPORT_PATTERN,
+  DEFAULT_EXPORT_PREFIX,
+} from "../lib/srt/naming";
+import { isUiLanguage, type UiLanguage } from "../lib/i18n";
+import { migrateLegacySettings } from "../lib/settings/legacy";
+import { getSetting, setSetting } from "../lib/db/projects";
 
 export type LogStatus = "info" | "run" | "ok" | "err";
 
@@ -32,24 +46,89 @@ export interface Settings {
   chunkSecs: number;
   prompt: string;
   layout: Layout;
+  /** Width of the player column in the `side` layout, pixels. */
+  sidebarWidth: number;
+  /** Width of the process log column, pixels. */
+  processWidth: number;
+  /** Language of the app's own interface. */
+  uiLanguage: UiLanguage;
+  /** Show the translated lines under each block's source text. */
+  showTranslations: boolean;
+  /** Languages stacked under the source line on the video overlay. */
+  overlayLanguages: string[];
+  /** Prepended verbatim to every exported file name. */
+  exportPrefix: string;
+  /** Token pattern for exported file names — see `lib/srt/naming.ts`. */
+  exportPattern: string;
+  translation: TranslationSettings;
 }
 
 const SETTINGS_KEY = "srt-editor.settings";
 
-function loadSettings(): Settings {
-  const defaults: Settings = {
-    apiKey: "",
-    model: DEFAULT_MODEL,
-    chunkSecs: DEFAULT_CHUNK_SECS,
-    prompt: DEFAULT_PROMPT,
-    layout: "top",
+export const DEFAULT_SETTINGS: Settings = {
+  apiKey: "",
+  model: DEFAULT_MODEL,
+  chunkSecs: DEFAULT_CHUNK_SECS,
+  prompt: DEFAULT_PROMPT,
+  layout: "top",
+  sidebarWidth: 360,
+  processWidth: 320,
+  uiLanguage: detectUiLanguage(),
+  showTranslations: true,
+  overlayLanguages: [],
+  exportPrefix: DEFAULT_EXPORT_PREFIX,
+  exportPattern: DEFAULT_EXPORT_PATTERN,
+  translation: DEFAULT_TRANSLATION,
+};
+
+/** First run follows the OS language when the app is available in it. */
+function detectUiLanguage(): UiLanguage {
+  const tag = (globalThis.navigator?.language ?? "en").slice(0, 2).toLowerCase();
+  return isUiLanguage(tag) ? tag : "en";
+}
+
+/**
+ * Shallow-merge would replace the whole `translation` object when a stored
+ * snapshot predates a field, so nested settings are merged one level deeper.
+ */
+export function mergeSettings(
+  base: Settings,
+  patch: Partial<Settings> | null | undefined,
+): Settings {
+  if (!patch) return base;
+  const current = migrateLegacySettings(
+    patch as Partial<Settings> & Record<string, unknown>,
+  );
+  return {
+    ...base,
+    ...current,
+    translation: { ...base.translation, ...(current.translation ?? {}) },
   };
+}
+
+/**
+ * Synchronous first paint comes from `localStorage`; SQLite is the durable copy
+ * and overrides it right after launch (see `hydrateSettings`).
+ */
+function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY);
-    return raw ? { ...defaults, ...JSON.parse(raw) } : defaults;
+    return raw
+      ? mergeSettings(DEFAULT_SETTINGS, JSON.parse(raw) as Partial<Settings>)
+      : DEFAULT_SETTINGS;
   } catch {
-    return defaults;
+    return DEFAULT_SETTINGS;
   }
+}
+
+function persistSettings(settings: Settings) {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {
+    /* private mode — SQLite still has it */
+  }
+  // Fire-and-forget: outside Tauri (plain `bun run dev`) there is no backend.
+  void setSetting(SETTINGS_KEY, JSON.stringify(settings)).catch(() => {});
 }
 
 export type MediaKind = "video" | "audio";
@@ -62,23 +141,47 @@ interface AppState {
   log: LogEntry[];
   generating: boolean;
   progress: { done: number; total: number } | null;
+  translating: boolean;
+  translateProgress: { done: number; total: number } | null;
+  /** Polled by the run between requests; see `requestStopTranslation`. */
+  translateStopRequested: boolean;
   currentTime: number;
   settings: Settings;
+  /** Row id of the open project, or null when nothing has been saved yet. */
+  projectId: number | null;
+  projectName: string;
+  /** What the boot checks found, so About can report it without re-probing. */
+  env: { ffmpeg: string | null; dbSchema: number | null };
 
   setMedia: (path: string, url: string, kind: MediaKind) => void;
   appendLog: (message: string, status?: LogStatus) => void;
   setGenerating: (v: boolean) => void;
   setProgress: (p: { done: number; total: number } | null) => void;
+  setTranslating: (v: boolean) => void;
+  setTranslateProgress: (p: { done: number; total: number } | null) => void;
+  requestStopTranslation: () => void;
   setCurrentTime: (t: number) => void;
   setBlocks: (blocks: SubtitleBlock[]) => void;
   editText: (id: string, text: string) => void;
+  editTranslation: (id: string, lang: string, text: string) => void;
+  applyTranslationBatch: (
+    lang: string,
+    indices: number[],
+    results: Map<number, string>,
+  ) => void;
+  dropLanguage: (lang: string) => void;
   mergePrev: (id: string) => void;
   mergeNext: (id: string) => void;
   split: (id: string, wordIndex?: number) => void;
+  cutAtCaret: (id: string, caret: number | null) => void;
   setTimes: (id: string, start: number, end: number) => void;
   remove: (id: string) => void;
   saveSettings: (s: Settings) => void;
   setLayout: (layout: Layout) => void;
+  setPaneWidth: (pane: "sidebarWidth" | "processWidth", px: number) => void;
+  setProject: (id: number | null, name: string) => void;
+  setEnv: (env: Partial<AppState["env"]>) => void;
+  closeWorkspace: () => void;
 }
 
 let logId = 0;
@@ -91,8 +194,14 @@ export const useAppStore = create<AppState>((set) => ({
   log: [],
   generating: false,
   progress: null,
+  translating: false,
+  translateProgress: null,
+  translateStopRequested: false,
   currentTime: 0,
   settings: loadSettings(),
+  projectId: null,
+  projectName: "Untitled project",
+  env: { ffmpeg: null, dbSchema: null },
 
   setMedia: (path, url, kind) =>
     set({ mediaPath: path, mediaUrl: url, mediaKind: kind, blocks: [] }),
@@ -110,28 +219,72 @@ export const useAppStore = create<AppState>((set) => ({
     })),
   setGenerating: (generating) => set({ generating }),
   setProgress: (progress) => set({ progress }),
+  // Starting a run clears any stop left over from the previous one.
+  setTranslating: (translating) =>
+    set(translating ? { translating, translateStopRequested: false } : { translating }),
+  setTranslateProgress: (translateProgress) => set({ translateProgress }),
+  requestStopTranslation: () => set({ translateStopRequested: true }),
   setCurrentTime: (currentTime) => set({ currentTime }),
   setBlocks: (blocks) => set({ blocks }),
   editText: (id, text) =>
     set((s) => ({ blocks: updateBlockText(s.blocks, id, text) })),
+  editTranslation: (id, lang, text) =>
+    set((s) => ({ blocks: updateBlockTranslation(s.blocks, id, lang, text) })),
+  applyTranslationBatch: (lang, indices, results) =>
+    set((s) => ({
+      blocks: applyTranslations(s.blocks, lang, indices, results),
+    })),
+  dropLanguage: (lang) =>
+    set((s) => ({ blocks: stripLanguage(s.blocks, lang) })),
   mergePrev: (id) => set((s) => ({ blocks: mergeWithPrevious(s.blocks, id) })),
   mergeNext: (id) => set((s) => ({ blocks: mergeWithNext(s.blocks, id) })),
   split: (id, wordIndex) =>
     set((s) => ({ blocks: splitBlock(s.blocks, id, wordIndex) })),
+  cutAtCaret: (id, caret) =>
+    set((s) => ({ blocks: cutBlockAtCaret(s.blocks, id, caret) })),
   setTimes: (id, start, end) =>
     set((s) => ({ blocks: setBlockTimes(s.blocks, id, start, end) })),
   remove: (id) => set((s) => ({ blocks: removeBlock(s.blocks, id) })),
   saveSettings: (settings) => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    persistSettings(settings);
     set({ settings });
   },
   setLayout: (layout) =>
     set((s) => {
       const settings = { ...s.settings, layout };
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      persistSettings(settings);
       return { settings };
     }),
+  setPaneWidth: (pane, px) =>
+    set((s) => {
+      const settings = { ...s.settings, [pane]: Math.round(px) };
+      persistSettings(settings);
+      return { settings };
+    }),
+  setProject: (projectId, projectName) => set({ projectId, projectName }),
+  setEnv: (env) => set((s) => ({ env: { ...s.env, ...env } })),
+  // Settings and the process log survive: they describe the app, not the work.
+  closeWorkspace: () =>
+    set({
+      mediaPath: null,
+      mediaUrl: null,
+      mediaKind: "video",
+      blocks: [],
+      currentTime: 0,
+      progress: null,
+      translateProgress: null,
+      projectId: null,
+      projectName: "Untitled project",
+    }),
 }));
+
+/** Replace the bootstrap settings with the durable SQLite copy, if there is one. */
+export async function hydrateSettings(): Promise<void> {
+  const raw = await getSetting(SETTINGS_KEY);
+  if (!raw) return;
+  const stored = JSON.parse(raw) as Partial<Settings>;
+  useAppStore.setState((s) => ({ settings: mergeSettings(s.settings, stored) }));
+}
 
 // Dev-only handle so tooling/agents can drive the store from the console.
 if (import.meta.env.DEV) {

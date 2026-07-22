@@ -3,9 +3,12 @@ import {
   mergeWithPrevious,
   mergeWithNext,
   splitBlock,
+  splitBlockAtChar,
+  cutBlockAtCaret,
   setBlockTimes,
   updateBlockText,
   removeBlock,
+  updateBlockTranslation,
   MIN_BLOCK_DURATION,
 } from "./ops";
 import { findActiveBlock } from "./active";
@@ -83,6 +86,78 @@ describe("splitBlock", () => {
   it("is a no-op for single-word blocks", () => {
     const single = [{ id: "a", start: 0, end: 1, text: "word" }];
     expect(splitBlock(single, "a")).toEqual(single);
+  });
+});
+
+describe("splitBlockAtChar", () => {
+  const one = (text: string, end = 4): SubtitleBlock[] => [
+    { id: "a", start: 0, end, text },
+  ];
+
+  it("cuts at the caret, keeping both sides in order", () => {
+    const out = splitBlockAtChar(one("hello there world"), "a", 11);
+    expect(out.map((b) => b.text)).toEqual(["hello there", "world"]);
+    expect(out[0].start).toBe(0);
+    expect(out[0].end).toBe(out[1].start);
+    expect(out[1].end).toBe(4);
+  });
+
+  it("cuts inside a word", () => {
+    const out = splitBlockAtChar(one("abcdef"), "a", 3);
+    expect(out.map((b) => b.text)).toEqual(["abc", "def"]);
+    expect(out[0].end).toBeCloseTo(2);
+  });
+
+  it("drops the whitespace at the cut", () => {
+    const out = splitBlockAtChar(one("aa   bb"), "a", 3);
+    expect(out.map((b) => b.text)).toEqual(["aa", "bb"]);
+  });
+
+  it("is a no-op when one side would be empty", () => {
+    const blocks = one("hello");
+    expect(splitBlockAtChar(blocks, "a", 0)).toEqual(blocks);
+    expect(splitBlockAtChar(blocks, "a", 5)).toEqual(blocks);
+    expect(splitBlockAtChar(one("  hi"), "a", 2)).toEqual(one("  hi"));
+  });
+
+  it("keeps both halves at the minimum duration on very short blocks", () => {
+    const out = splitBlockAtChar(one("a bbbbbbbbbb", 0.06), "a", 1);
+    expect(out[0].end - out[0].start).toBeGreaterThanOrEqual(MIN_BLOCK_DURATION);
+    expect(out[1].start).toBeLessThanOrEqual(out[1].end);
+  });
+
+  it("clamps a caret past the end of the text", () => {
+    const blocks = one("hello world");
+    expect(splitBlockAtChar(blocks, "a", 999)).toEqual(blocks);
+  });
+});
+
+describe("cutBlockAtCaret", () => {
+  it("uses the caret when it has text on both sides", () => {
+    const out = cutBlockAtCaret(
+      [{ id: "a", start: 0, end: 4, text: "one two three" }],
+      "a",
+      3,
+    );
+    expect(out.map((b) => b.text)).toEqual(["one", "two three"]);
+  });
+
+  it("falls back to the middle word with no caret", () => {
+    const out = cutBlockAtCaret(
+      [{ id: "a", start: 0, end: 4, text: "aa bb cc dd" }],
+      "a",
+      null,
+    );
+    expect(out.map((b) => b.text)).toEqual(["aa bb", "cc dd"]);
+  });
+
+  it("falls back to the middle word when the caret sits at an edge", () => {
+    const out = cutBlockAtCaret(
+      [{ id: "a", start: 0, end: 4, text: "aa bb cc dd" }],
+      "a",
+      0,
+    );
+    expect(out.map((b) => b.text)).toEqual(["aa bb", "cc dd"]);
   });
 });
 
@@ -173,5 +248,51 @@ describe("updateBlockText / removeBlock", () => {
 
   it("removes a block", () => {
     expect(removeBlock(blocks(), "b").map((b) => b.id)).toEqual(["a", "c"]);
+  });
+});
+
+describe("translations across edits", () => {
+  const translated = (): SubtitleBlock[] => [
+    { id: "a", start: 0, end: 1, text: "one", translations: { th: "หนึ่ง" } },
+    { id: "b", start: 1, end: 2, text: "two", translations: { th: "สอง" } },
+    { id: "c", start: 2, end: 3, text: "three words here" },
+  ];
+
+  it("joins the translations when two blocks merge", () => {
+    const out = mergeWithPrevious(translated(), "b");
+    expect(out[0].translations).toEqual({ th: "หนึ่ง สอง" });
+  });
+
+  it("carries over a language only one side has", () => {
+    const input = translated();
+    input[1].translations = { en: "two" };
+    const out = mergeWithNext(input, "a");
+    expect(out[0].translations).toEqual({ th: "หนึ่ง", en: "two" });
+  });
+
+  it("drops the stale translation from both halves of a cut", () => {
+    const out = splitBlockAtChar(translated(), "a", 1);
+    expect(out[0].translations).toBeUndefined();
+    expect(out[1].translations).toBeUndefined();
+  });
+
+  it("drops it on a word-boundary split too", () => {
+    const input = translated();
+    input[2].translations = { th: "สาม" };
+    const out = splitBlock(input, "c");
+    expect(out[2].translations).toBeUndefined();
+    expect(out[3].translations).toBeUndefined();
+  });
+
+  it("edits one language without touching the others", () => {
+    const input = translated();
+    input[0].translations = { th: "หนึ่ง", en: "one" };
+    const out = updateBlockTranslation(input, "a", "en", "ONE");
+    expect(out[0].translations).toEqual({ th: "หนึ่ง", en: "ONE" });
+  });
+
+  it("removes a language when its text is cleared", () => {
+    const out = updateBlockTranslation(translated(), "a", "th", "  ");
+    expect(out[0].translations).toBeUndefined();
   });
 });

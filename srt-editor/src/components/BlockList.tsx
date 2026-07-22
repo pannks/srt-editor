@@ -1,4 +1,5 @@
 import { useAppStore } from "../state/store";
+import { useT } from "../state/useT";
 import { findActiveBlock } from "../lib/blocks/active";
 import { BlockItem } from "./BlockItem";
 
@@ -6,13 +7,12 @@ export function BlockList() {
   const blocks = useAppStore((s) => s.blocks);
   const currentTime = useAppStore((s) => s.currentTime);
   const activeId = findActiveBlock(blocks, currentTime)?.id;
+  const t = useT();
 
   if (blocks.length === 0) {
     return (
       <main className="block-list empty">
-        <p className="muted">
-          No subtitle blocks yet — open media and press “Generate SRT”.
-        </p>
+        <p className="muted">{t("blocks.empty")}</p>
       </main>
     );
   }

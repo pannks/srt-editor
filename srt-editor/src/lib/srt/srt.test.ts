@@ -98,3 +98,43 @@ describe("parseSrt", () => {
     expect(parsed.map((b) => b.text)).toEqual(["hi", "there"]);
   });
 });
+
+describe("multi-language SRT", () => {
+  const blocks = [
+    {
+      id: "a",
+      start: 0,
+      end: 1,
+      text: "hello",
+      translations: { th: "สวัสดี" },
+    },
+    { id: "b", start: 1, end: 2, text: "world" },
+  ];
+
+  it("writes the source text by default", () => {
+    expect(blocksToSrt(blocks)).toContain("hello");
+    expect(blocksToSrt(blocks)).not.toContain("สวัสดี");
+  });
+
+  it("writes the translation when a language is asked for", () => {
+    const srt = blocksToSrt(blocks, { lang: "th" });
+    expect(srt).toContain("สวัสดี");
+    expect(srt).not.toContain("hello");
+  });
+
+  it("falls back to the source for untranslated cues", () => {
+    expect(blocksToSrt(blocks, { lang: "th" })).toContain("world");
+  });
+
+  it("stacks the translation under the source when bilingual", () => {
+    expect(blocksToSrt(blocks, { lang: "th", bilingual: true })).toContain(
+      "hello\nสวัสดี",
+    );
+  });
+
+  it("keeps cue numbering and timing untouched by the language", () => {
+    expect(blocksToSrt(blocks, { lang: "th" })).toContain(
+      "1\n00:00:00,000 --> 00:00:01,000",
+    );
+  });
+});

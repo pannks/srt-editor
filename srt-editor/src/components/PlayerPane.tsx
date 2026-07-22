@@ -4,10 +4,12 @@ import RegionsPlugin, {
   type Region,
 } from "wavesurfer.js/dist/plugins/regions.esm.js";
 import { useAppStore } from "../state/store";
+import { useT } from "../state/useT";
 import { findActiveBlock } from "../lib/blocks/active";
 import { MIN_BLOCK_DURATION } from "../lib/blocks/ops";
 import type { SubtitleBlock } from "../lib/blocks/types";
 import { registerMedia, seekTo } from "../lib/player";
+import { waveformPeaks, type Waveform } from "../lib/audio/tauri";
 
 /** Waveform zoom in pixels per second; `FIT` lets the whole clip fill the pane. */
 const FIT = 0;
@@ -15,8 +17,38 @@ const ZOOM_MIN = 4;
 const ZOOM_MAX = 600;
 const ZOOM_FACTOR = 1.4;
 
-const REGION_COLOR = "rgba(122, 162, 247, 0.14)";
-const REGION_COLOR_ALT = "rgba(122, 162, 247, 0.24)";
+const REGION_COLOR = "rgba(210, 120, 47, 0.14)";
+const REGION_COLOR_ALT = "rgba(210, 120, 47, 0.26)";
+
+/** Buckets per second of media, bounded so short clips still look detailed. */
+const PEAKS_PER_SEC = 40;
+const PEAKS_MIN = 1000;
+const PEAKS_MAX = 40_000;
+/** Resolution of the flat placeholder used when there is nothing to decode. */
+const FLAT_PEAKS = 800;
+/** How long to wait for the webview to report a duration before guessing. */
+const METADATA_TIMEOUT_MS = 1500;
+
+/**
+ * The element's duration once the webview has metadata. Exotic containers never
+ * load in `<video>` at all, so this resolves to 0 rather than hanging.
+ */
+function whenDuration(el: HTMLMediaElement): Promise<number> {
+  if (Number.isFinite(el.duration) && el.duration > 0) {
+    return Promise.resolve(el.duration);
+  }
+  return new Promise((resolve) => {
+    const done = (value: number) => {
+      el.removeEventListener("loadedmetadata", onMeta);
+      clearTimeout(timer);
+      resolve(value);
+    };
+    const onMeta = () =>
+      done(Number.isFinite(el.duration) ? el.duration : 0);
+    const timer = setTimeout(() => done(0), METADATA_TIMEOUT_MS);
+    el.addEventListener("loadedmetadata", onMeta);
+  });
+}
 
 /** Region labels live in wavesurfer's shadow DOM, so style them inline. */
 function regionLabel(block: SubtitleBlock, index: number): HTMLElement {
@@ -25,7 +57,7 @@ function regionLabel(block: SubtitleBlock, index: number): HTMLElement {
   Object.assign(el.style, {
     fontSize: "10px",
     lineHeight: "1.2",
-    color: "#c0caf5",
+    color: "#f0d9c4",
     padding: "2px 4px",
     display: "block",
     overflow: "hidden",
@@ -39,6 +71,7 @@ function regionLabel(block: SubtitleBlock, index: number): HTMLElement {
 /** Video/audio player with a wavesurfer waveform bound to the same media element. */
 export function PlayerPane() {
   const {
+    mediaPath,
     mediaUrl,
     mediaKind,
     blocks,
@@ -46,8 +79,18 @@ export function PlayerPane() {
     setCurrentTime,
     setTimes,
     appendLog,
+    settings,
   } = useAppStore();
+  const t = useT();
   const activeBlock = findActiveBlock(blocks, currentTime);
+  // One line per ticked language, in the order they were ticked. Languages the
+  // active block has no translation for are skipped rather than left blank.
+  const overlayLines = settings.overlayLanguages
+    .map((lang) => ({
+      lang,
+      text: activeBlock?.translations?.[lang]?.trim() ?? "",
+    }))
+    .filter((line) => line.text !== "");
 
   const mediaRef = useRef<HTMLMediaElement | null>(null);
   const waveRef = useRef<HTMLDivElement | null>(null);
@@ -58,11 +101,50 @@ export function PlayerPane() {
   const draggingRef = useRef(false);
   const [ready, setReady] = useState(false);
   const [zoom, setZoom] = useState<number>(FIT);
+  /** Peaks to draw; `null` while they are still being decoded. */
+  const [wave, setWave] = useState<Waveform | null>(null);
+  const [waveError, setWaveError] = useState<string | null>(null);
+
+  // Decode the envelope with ffmpeg. wavesurfer would otherwise fetch the media
+  // and hand it to `decodeAudioData`, which fails on most video containers and
+  // leaves the pane blank.
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (!mediaPath || !el) return;
+    let cancelled = false;
+    setWave(null);
+    setWaveError(null);
+
+    void (async () => {
+      const hinted = await whenDuration(el);
+      if (cancelled) return;
+      const buckets = Math.min(
+        PEAKS_MAX,
+        Math.max(PEAKS_MIN, Math.round(hinted * PEAKS_PER_SEC)),
+      );
+      try {
+        const result = await waveformPeaks(mediaPath, buckets);
+        if (!cancelled) setWave(result);
+      } catch (e) {
+        if (cancelled) return;
+        // Nothing to draw — keep an empty track of the right length so the
+        // player, the regions and every block edit still work.
+        const durationSec = Number.isFinite(el.duration) ? el.duration : hinted;
+        appendLog(`No waveform: ${e} — using an empty track`, "err");
+        setWaveError(String(e));
+        setWave({ peaks: new Array(FLAT_PEAKS).fill(0), durationSec });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mediaPath, appendLog]);
 
   useEffect(() => {
     const el = mediaRef.current;
     const container = waveRef.current;
-    if (!el || !container || !mediaUrl) return;
+    if (!el || !container || !mediaUrl || !wave) return;
 
     registerMedia(el);
     const regions = RegionsPlugin.create();
@@ -70,13 +152,16 @@ export function PlayerPane() {
       container,
       media: el,
       height: 72,
-      waveColor: "#3f4a5a",
-      progressColor: "#7aa2f7",
-      cursorColor: "#c0caf5",
+      waveColor: "#584a3e",
+      progressColor: "#d2782f",
+      cursorColor: "#f0d9c4",
       barWidth: 2,
       barGap: 1,
       autoScroll: true,
       autoCenter: true,
+      // Pre-decoded peaks: wavesurfer draws these and never fetches the media.
+      peaks: [wave.peaks],
+      duration: wave.durationSec || undefined,
       plugins: [regions],
     });
     ws.on("ready", () => {
@@ -121,7 +206,7 @@ export function PlayerPane() {
       regionMap.current.clear();
       setReady(false);
     };
-  }, [mediaUrl, appendLog, setCurrentTime]);
+  }, [mediaUrl, wave, appendLog, setCurrentTime]);
 
   // Dragging or resizing a region retimes its block, ripple included.
   useEffect(() => {
@@ -222,9 +307,7 @@ export function PlayerPane() {
 
   if (!mediaUrl) {
     return (
-      <div className="player-pane empty">
-        Open a video or audio file to start
-      </div>
+      <div className="player-pane empty">{t("player.empty")}</div>
     );
   }
 
@@ -248,28 +331,43 @@ export function PlayerPane() {
           {activeBlock && (
             <div className="subtitle-overlay">
               <span>{activeBlock.text}</span>
+              {overlayLines.map((line) => (
+                <span key={line.lang} className="translated">
+                  {line.text}
+                </span>
+              ))}
             </div>
           )}
         </div>
       )}
       <div ref={waveRef} className="waveform" />
+      {!wave && <p className="muted wave-status">{t("player.waveLoading")}</p>}
+      {waveError && (
+        <p className="muted wave-status">
+          {t("player.waveEmpty", { error: waveError })}
+        </p>
+      )}
       <div className="wave-controls">
-        <button onClick={() => zoomBy(1 / ZOOM_FACTOR)} title="Zoom out">
+        <button onClick={() => zoomBy(1 / ZOOM_FACTOR)} title={t("player.zoomOut")}>
           −
         </button>
-        <button onClick={() => zoomBy(ZOOM_FACTOR)} title="Zoom in">
+        <button onClick={() => zoomBy(ZOOM_FACTOR)} title={t("player.zoomIn")}>
           +
         </button>
         <button
           onClick={() => applyZoom(FIT)}
           disabled={zoom === FIT}
-          title="Fit the whole clip"
+          title={t("player.fit")}
         >
           Fit
         </button>
         <span className="muted zoom-hint">
-          {zoom === FIT ? "whole clip" : `${Math.round(zoom)} px/s`} · drag
-          blocks to retime · ⌘-scroll to zoom
+          {t("player.zoomHint", {
+            zoom:
+              zoom === FIT
+                ? t("player.wholeClip")
+                : `${Math.round(zoom)} px/s`,
+          })}
         </span>
       </div>
     </div>

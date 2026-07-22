@@ -34,7 +34,9 @@ bun install
 bun run tauri dev      # run the app
 bun run test           # vitest, pure logic only
 bun run build          # tsc + vite production build
+bun run version        # verify package.json / Cargo.toml / tauri.conf.json agree
 cargo check --manifest-path src-tauri/Cargo.toml
+cargo test --manifest-path src-tauri/Cargo.toml --lib   # SQLite migrations/queries
 ```
 
 ## Definition of done
@@ -43,7 +45,7 @@ A task is not Done until all three pass:
 
 - `bun run test`
 - `bun run build`
-- `cargo check` in `srt-editor/src-tauri/`
+- `cargo check` **and** `cargo test --lib` in `srt-editor/src-tauri/`
 
 ## Non-negotiables
 
@@ -53,4 +55,6 @@ A task is not Done until all three pass:
 - **All block time changes route through `setBlockTimes`.** Never assign `start`/`end` directly — it is what keeps cues ordered and non-overlapping.
 - **Media-sized HTTP payloads go through Rust (`reqwest`), never the webview.** The frontend passes a file path, never the file's bytes.
 - **Tauri v2 APIs only.**
+- **One version, bumped by the script.** `package.json` is the source of truth; run `bun run version <patch|minor|major|x.y.z>` and add the entry to `srt-editor/CHANGELOG.md`. Never hand-edit the version in `Cargo.toml` or `tauri.conf.json`.
+- **SQLite migrations are append-only.** Add a new entry to `MIGRATIONS` in `src-tauri/src/db.rs`; never edit one that has shipped, or existing databases will skip it.
 - Do not commit `testing-file/`, `dist/`, `node_modules/`, or `src-tauri/target/`.

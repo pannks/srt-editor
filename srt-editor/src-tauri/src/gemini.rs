@@ -95,7 +95,7 @@ fn api_error(body: &str) -> String {
 }
 
 /// Concatenate the text parts of the first candidate.
-fn extract_text(body: &str) -> Result<String, String> {
+pub fn extract_text(body: &str) -> Result<String, String> {
     let value: Value =
         serde_json::from_str(body).map_err(|e| format!("Gemini response is not JSON: {e}"))?;
     let candidate = value["candidates"]

@@ -1,21 +1,39 @@
 import { useState } from "react";
-import { open, save } from "@tauri-apps/plugin-dialog";
-import { convertFileSrc } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
+import {
+  Captions,
+  Columns2,
+  Database,
+  FileVideo,
+  Languages,
+  Loader2,
+  Info,
+  PanelTop,
+  Settings as SettingsIcon,
+  Sparkles,
+  Square,
+  XCircle,
+} from "lucide-react";
 import { useAppStore } from "../state/store";
+import { useT } from "../state/useT";
+import { openPath } from "../state/openFiles";
 import { generateBlocks } from "../lib/pipeline/generate";
-import { blocksToSrt } from "../lib/srt/generate";
-import { parseSrt } from "../lib/srt/parse";
-import { readTextFile, saveTextFile } from "../lib/audio/tauri";
+import { translateBlocks } from "../lib/translate/run";
+import { AUDIO_EXT, VIDEO_EXT } from "../lib/media/kind";
+import { APP_VERSION } from "../lib/version";
 import { SettingsDialog } from "./SettingsDialog";
-
-const VIDEO_EXT = ["mp4", "mov", "mkv", "webm", "avi", "m4v"];
-const AUDIO_EXT = ["mp3", "wav", "m4a", "aac", "flac", "ogg", "opus"];
+import { ProjectsDialog } from "./ProjectsDialog";
+import { ExportMenu } from "./ExportMenu";
+import { AboutDialog } from "./AboutDialog";
 
 export function Toolbar() {
   const store = useAppStore();
+  const t = useT();
   const [showSettings, setShowSettings] = useState(false);
+  const [showProjects, setShowProjects] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
 
-  const openMedia = async () => {
+  const pickMedia = async () => {
     const path = await open({
       multiple: false,
       filters: [
@@ -24,11 +42,15 @@ export function Toolbar() {
         { name: "Audio", extensions: AUDIO_EXT },
       ],
     });
-    if (typeof path !== "string") return;
-    const ext = path.split(".").pop()?.toLowerCase() ?? "";
-    const kind = AUDIO_EXT.includes(ext) ? "audio" : "video";
-    store.setMedia(path, convertFileSrc(path), kind);
-    store.appendLog(`Opened ${kind}: ${path}`, "ok");
+    if (typeof path === "string") await openPath(path);
+  };
+
+  const pickSrt = async () => {
+    const path = await open({
+      multiple: false,
+      filters: [{ name: "SubRip", extensions: ["srt"] }],
+    });
+    if (typeof path === "string") await openPath(path);
   };
 
   const generate = async () => {
@@ -49,71 +71,163 @@ export function Toolbar() {
     }
   };
 
-  const importSrt = async () => {
-    const path = await open({
-      multiple: false,
-      filters: [{ name: "SubRip", extensions: ["srt"] }],
-    });
-    if (typeof path !== "string") return;
+  const translate = async (retranslateAll = false) => {
+    if (store.translating || store.blocks.length === 0) return;
+    if (store.settings.translation.targets.length === 0) {
+      store.appendLog(t("log.noTranslationTargets"), "err");
+      setShowSettings(true);
+      return;
+    }
+    store.setTranslating(true);
+    store.setTranslateProgress(null);
     try {
-      const blocks = parseSrt(await readTextFile(path));
-      store.setBlocks(blocks);
-      store.appendLog(`Loaded ${blocks.length} block(s) from ${path}`, "ok");
+      await translateBlocks(
+        store.blocks,
+        store.settings.translation,
+        {
+          log: store.appendLog,
+          progress: (done, total) => store.setTranslateProgress({ done, total }),
+          // Results are written straight to the store, so the lines under each
+          // block fill in while the remaining batches are still running.
+          apply: store.applyTranslationBatch,
+          // Read from the store, not from a captured value, so pressing Stop
+          // during the run is seen by the next batch.
+          shouldStop: () => useAppStore.getState().translateStopRequested,
+        },
+        { retranslateAll },
+      );
     } catch (e) {
       store.appendLog(
-        `Could not read SRT: ${e instanceof Error ? e.message : e}`,
+        `Translation failed: ${e instanceof Error ? e.message : e}`,
         "err",
       );
+    } finally {
+      store.setTranslating(false);
+      store.setTranslateProgress(null);
     }
   };
 
-  const exportSrt = async () => {
-    if (store.blocks.length === 0) return;
-    const path = await save({
-      defaultPath: "subtitles.srt",
-      filters: [{ name: "SubRip", extensions: ["srt"] }],
-    });
-    if (!path) return;
-    try {
-      await saveTextFile(path, blocksToSrt(store.blocks));
-      store.appendLog(`Exported SRT: ${path}`, "ok");
-    } catch (e) {
-      store.appendLog(`Export failed: ${e}`, "err");
-    }
+  const closeWorkspace = () => {
+    if (!store.mediaPath && store.blocks.length === 0) return;
+    if (!window.confirm(t("close.confirm"))) return;
+    store.closeWorkspace();
+    store.appendLog(t("log.workspaceClosed"), "ok");
   };
+
+  const busy = store.generating || store.translating;
 
   return (
     <header className="toolbar">
-      <span className="app-title">SRT Studio</span>
-      <button onClick={openMedia}>Open media</button>
+      <img className="app-logo" src="/logo-srt-editor.png" alt="" />
+      <span className="app-title">
+        {t("app.name")}
+        <small className="app-version" title={t("toolbar.version")}>
+          v{APP_VERSION}
+        </small>
+      </span>
+      <button onClick={pickMedia}>
+        <FileVideo size={14} /> {t("toolbar.openMedia")}
+      </button>
       <button
         onClick={generate}
-        disabled={!store.mediaPath || store.generating}
+        disabled={!store.mediaPath || busy}
         className="primary"
       >
+        {store.generating ? (
+          <Loader2 size={14} className="spin" />
+        ) : (
+          <Sparkles size={14} />
+        )}
         {store.generating
           ? store.progress
-            ? `Transcribing ${store.progress.done}/${store.progress.total}…`
-            : "Working…"
-          : "Generate SRT"}
+            ? t("toolbar.transcribing", {
+                done: store.progress.done,
+                total: store.progress.total,
+              })
+            : t("toolbar.working")
+          : t("toolbar.generate")}
       </button>
-      <button onClick={importSrt} title="Edit an existing subtitle file">
-        Open SRT
+      <button
+        onClick={() => translate()}
+        disabled={store.blocks.length === 0 || busy}
+        title={t("toolbar.translateHint")}
+      >
+        {store.translating ? (
+          <Loader2 size={14} className="spin" />
+        ) : (
+          <Languages size={14} />
+        )}
+        {store.translating
+          ? store.translateProgress
+            ? t("toolbar.translating", {
+                done: store.translateProgress.done,
+                total: store.translateProgress.total,
+              })
+            : t("toolbar.working")
+          : t("toolbar.translate")}
       </button>
-      <button onClick={exportSrt} disabled={store.blocks.length === 0}>
-        Export SRT
+      {store.translating && (
+        <button
+          className="danger"
+          onClick={store.requestStopTranslation}
+          disabled={store.translateStopRequested}
+          title={t("toolbar.stopHint")}
+        >
+          <Square size={13} />
+          {store.translateStopRequested
+            ? t("toolbar.stopping")
+            : t("toolbar.stop")}
+        </button>
+      )}
+      <button onClick={pickSrt} title={t("toolbar.openSrtHint")}>
+        <Captions size={14} /> {t("toolbar.openSrt")}
       </button>
+      <ExportMenu />
+      <button onClick={() => setShowProjects(true)} title={t("toolbar.projectsHint")}>
+        <Database size={14} /> {t("toolbar.projects")}
+      </button>
+      <button
+        onClick={closeWorkspace}
+        disabled={!store.mediaPath && store.blocks.length === 0}
+        title={t("toolbar.closeHint")}
+      >
+        <XCircle size={14} /> {t("toolbar.close")}
+      </button>
+      <span className="project-badge muted" title={t("toolbar.openProject")}>
+        {store.projectName}
+        {store.projectId ? ` · #${store.projectId}` : ` · ${t("toolbar.unsaved")}`}
+      </span>
       <span className="spacer" />
       <button
-        title="Player above the blocks, or beside them (fits 9:16 video)"
+        title={t("toolbar.layoutHint")}
         onClick={() =>
           store.setLayout(store.settings.layout === "top" ? "side" : "top")
         }
       >
-        {store.settings.layout === "top" ? "▤ Top" : "◧ Sidebar"}
+        {store.settings.layout === "top" ? (
+          <>
+            <PanelTop size={14} /> {t("toolbar.layoutTop")}
+          </>
+        ) : (
+          <>
+            <Columns2 size={14} /> {t("toolbar.layoutSide")}
+          </>
+        )}
       </button>
-      <button onClick={() => setShowSettings(true)}>Settings</button>
+      <button onClick={() => setShowSettings(true)}>
+        <SettingsIcon size={14} /> {t("toolbar.settings")}
+      </button>
+      <button
+        className="icon-only"
+        onClick={() => setShowAbout(true)}
+        title={t("toolbar.about")}
+        aria-label={t("toolbar.about")}
+      >
+        <Info size={14} />
+      </button>
       {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
+      {showProjects && <ProjectsDialog onClose={() => setShowProjects(false)} />}
+      {showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
     </header>
   );
 }
