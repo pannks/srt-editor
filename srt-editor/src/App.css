@@ -1,0 +1,431 @@
+:root {
+  font-family: -apple-system, "SF Pro Text", Inter, Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  color-scheme: dark;
+  --bg: #14161c;
+  --bg-panel: #1a1d25;
+  --bg-raised: #21252f;
+  --border: #2c3140;
+  --text: #d7dce5;
+  --muted: #6b7385;
+  --accent: #7aa2f7;
+  --ok: #7fd88f;
+  --err: #f77a7a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 12px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #10131a;
+  font-weight: 600;
+}
+
+button.danger:hover:not(:disabled) {
+  border-color: var(--err);
+  color: var(--err);
+}
+
+input,
+textarea {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+  width: 100%;
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+/* Toolbar */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+}
+
+.app-title {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-right: 8px;
+}
+
+/* Player + waveform */
+.player-pane {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  padding: 10px 14px;
+}
+
+.player-pane.empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* Shrink-wraps the video so the subtitle overlay lines up with the picture
+   rather than with the pane, which matters for portrait clips. */
+.media-frame {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.media {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  max-height: 260px;
+  background: #000;
+  border-radius: 6px;
+}
+
+.media.audio-only {
+  width: 100%;
+}
+
+.media.audio-only {
+  height: 34px;
+  background: transparent;
+}
+
+/* Preview of the block under the playhead, positioned over the video. */
+.subtitle-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 12%;
+  padding: 0 8%;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.subtitle-overlay span {
+  background: rgba(0, 0, 0, 0.62);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+  text-wrap: balance;
+  padding: 3px 10px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+}
+
+/* Sidebar layout — player in its own column, which suits 9:16 video. */
+.app.layout-side {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.layout-side .toolbar {
+  grid-column: 1 / -1;
+}
+
+.layout-side .player-pane {
+  grid-column: 1;
+  grid-row: 2;
+  overflow-y: auto;
+  border-bottom: none;
+  border-right: 1px solid var(--border);
+}
+
+.layout-side .media {
+  width: 100%;
+  max-height: none;
+}
+
+.layout-side .body {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+.layout-side .subtitle-overlay span {
+  font-size: 13px;
+}
+
+.waveform {
+  margin-top: 8px;
+}
+
+.wave-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.wave-controls button {
+  padding: 1px 9px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.zoom-hint {
+  font-size: 11px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Body: blocks + process log */
+.body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.block-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.block-list.empty {
+  align-items: center;
+  justify-content: center;
+}
+
+.block {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.block.active {
+  border-color: var(--accent);
+}
+
+.block-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.block-head button {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+
+.block-index {
+  color: var(--muted);
+  font-size: 12px;
+  min-width: 30px;
+  background: transparent;
+  border: none;
+  padding: 2px 2px;
+}
+
+.block-index:hover {
+  color: var(--accent);
+}
+
+.time-field {
+  width: 74px;
+  padding: 2px 5px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--accent);
+  background: var(--bg);
+  border-color: transparent;
+  cursor: ew-resize;
+}
+
+.time-field:hover {
+  border-color: var(--border);
+}
+
+.time-field:focus {
+  cursor: text;
+}
+
+.time-field.scrubbing {
+  border-color: var(--accent);
+  background: var(--bg-raised);
+}
+
+.time-sep,
+.block-duration {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.block-duration {
+  font-variant-numeric: tabular-nums;
+  margin-left: 4px;
+}
+
+.block textarea {
+  resize: vertical;
+  min-height: 38px;
+  border: none;
+  background: transparent;
+  padding: 2px 4px;
+}
+
+/* Process panel */
+.process-panel {
+  width: 320px;
+  border-left: 1px solid var(--border);
+  background: var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.process-panel h3 {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  border-bottom: 1px solid var(--border);
+}
+
+.process-log {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-family: "SF Mono", ui-monospace, Menlo, monospace;
+}
+
+.log-entry {
+  display: flex;
+  gap: 6px;
+  padding: 2px 0;
+  align-items: baseline;
+}
+
+.log-time {
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+.log-icon {
+  flex-shrink: 0;
+}
+
+.log-entry.ok .log-icon {
+  color: var(--ok);
+}
+
+.log-entry.err .log-icon,
+.log-entry.err .log-msg {
+  color: var(--err);
+}
+
+.log-entry.run .log-icon {
+  color: var(--accent);
+}
+
+.log-msg {
+  word-break: break-word;
+}
+
+/* Settings modal */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.modal {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+  width: 520px;
+  max-width: 92vw;
+  max-height: 88vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.modal h2 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 8px;
+}
