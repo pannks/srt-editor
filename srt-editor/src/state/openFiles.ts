@@ -1,6 +1,7 @@
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { classifyPath } from "../lib/media/kind";
 import { parseSrt } from "../lib/srt/parse";
+import { parseVtt } from "../lib/vtt/parse";
 import { readTextFile } from "../lib/audio/tauri";
 import { translate } from "../lib/i18n";
 import { useAppStore } from "./store";
@@ -14,14 +15,16 @@ export async function openPath(path: string): Promise<void> {
   const lang = store.settings.uiLanguage;
   const kind = classifyPath(path);
 
-  if (kind === "srt") {
+  if (kind === "srt" || kind === "vtt") {
+    const label = kind.toUpperCase();
     try {
-      const blocks = parseSrt(await readTextFile(path));
+      const text = await readTextFile(path);
+      const blocks = kind === "vtt" ? parseVtt(text) : parseSrt(text);
       store.setBlocks(blocks);
       store.appendLog(`Loaded ${blocks.length} block(s) from ${path}`, "ok");
     } catch (e) {
       store.appendLog(
-        `Could not read SRT: ${e instanceof Error ? e.message : e}`,
+        `Could not read ${label}: ${e instanceof Error ? e.message : e}`,
         "err",
       );
     }

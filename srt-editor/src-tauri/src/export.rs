@@ -173,7 +173,7 @@ fn ensure_libass() -> Result<(), String> {
     if has_ass_filter(&listing) {
         Ok(())
     } else {
-        Err("this ffmpeg build has no libass ('ass' filter missing), so captions cannot be burned in — reinstall ffmpeg with libass support (macOS: `brew reinstall ffmpeg`, or `brew install homebrew-ffmpeg/ffmpeg/ffmpeg --with-libass`)".to_string())
+        Err("this ffmpeg build has no libass ('ass' filter missing), so captions cannot be burned in. Homebrew's default ffmpeg no longer bundles libass — install one that does: `brew install homebrew-ffmpeg/ffmpeg/ffmpeg`".to_string())
     }
 }
 

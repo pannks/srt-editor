@@ -366,6 +366,41 @@ textarea:focus {
   font-size: 13px;
 }
 
+/* Custom transport: replaces the native video controls, so nothing dark
+   overlays the picture while captions are being placed. */
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.transport button {
+  padding: 2px 8px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.transport .transport-play {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.transport-seek {
+  flex: 1;
+  min-width: 60px;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.transport-time {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+  min-width: 34px;
+  text-align: center;
+}
+
 .waveform {
   margin-top: 8px;
 }
@@ -583,6 +618,37 @@ button.cap-chip.current {
   gap: 8px;
 }
 
+/* Alignment pickers: three icon buttons fused into one segmented control. */
+.cap-seg {
+  display: inline-flex;
+}
+
+.cap-seg button {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 0;
+}
+
+.cap-seg button:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.cap-seg button:last-child {
+  border-radius: 0 6px 6px 0;
+}
+
+.cap-seg button + button {
+  margin-left: -1px;
+}
+
+.cap-seg button.current {
+  color: var(--on-accent);
+  background: var(--accent);
+  border-color: var(--accent-strong);
+  position: relative;
+}
+
 .cap-slider input[type="range"] {
   width: 108px;
   padding: 0;
@@ -637,10 +703,10 @@ button.cap-chip.current {
   padding-top: 10px;
 }
 
-/* The draggable caption on the video. */
+/* The draggable caption on the video. Anchor transform set per layer. */
 .caption-preview {
   position: absolute;
-  transform: translate(-50%, -50%);
+  transform: translate(var(--cap-tx, -50%), var(--cap-ty, -50%));
   max-width: 90%;
   padding: 0.1em 0.35em;
   border-radius: 4px;
@@ -685,7 +751,7 @@ button.cap-chip.current {
 
 @keyframes caption-pop {
   from {
-    transform: translate(-50%, -50%) scale(0.4);
+    transform: translate(var(--cap-tx, -50%), var(--cap-ty, -50%)) scale(0.4);
     opacity: 0;
   }
 }
@@ -1134,6 +1200,29 @@ button.tab.current {
 .menu-note {
   padding: 6px 12px;
   font-size: 11px;
+}
+
+/* Segmented SRT/VTT switch pinned to the top of the export menu. */
+.menu-format {
+  display: flex;
+  gap: 2px;
+  padding: 2px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+.menu-format button {
+  flex: 1;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.menu-format button.active {
+  background: var(--accent-soft);
+  border-color: transparent;
+  color: var(--accent);
 }
 
 /* Translations under the source text. Deliberately tight: a block with four

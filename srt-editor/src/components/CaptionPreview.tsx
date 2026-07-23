@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../state/store";
 import { captionText, type CaptionLayer } from "../lib/captions/types";
+import { wrapCaptionLines } from "../lib/captions/wrap";
 import { findActiveBlock } from "../lib/blocks/active";
 import { getMedia } from "../lib/player";
 import type { SubtitleBlock } from "../lib/blocks/types";
@@ -25,12 +26,14 @@ const KARAOKE_DIM = "#888888";
 function LayerSpan({
   layer,
   block,
+  frameW,
   frameH,
   scale,
   container,
 }: {
   layer: CaptionLayer;
   block: SubtitleBlock;
+  frameW: number;
   frameH: number;
   scale: number;
   container: React.RefObject<HTMLDivElement | null>;
@@ -45,7 +48,17 @@ function LayerSpan({
   if (text === "") return null;
 
   const pos = dragPos ?? { x: layer.posX, y: layer.posY };
-  const fontPx = Math.max(8, (layer.fontSizePct / 100) * frameH);
+  // No floor: the export has none either, so a floor here would make small
+  // captions look bigger in the preview than in the burned video.
+  const fontPx = (layer.fontSizePct / 100) * frameH;
+  // Break lines with the shared wrapper so the preview matches the export.
+  const lines = wrapCaptionLines(
+    text,
+    layer.widthPct * frameW,
+    fontPx,
+    layer.fontFamily || "Arial",
+    layer.bold,
+  );
   const o = layer.outlineWidth * scale;
   const outlineShadows =
     layer.outlineWidth > 0
@@ -79,6 +92,11 @@ function LayerSpan({
     setDragPos(next);
   };
 
+  // The anchor point (posX/posY) maps to a corner/edge/centre of the box via
+  // the same alignment the export uses; the transform hangs the box off it.
+  const tx = { left: "0%", center: "-50%", right: "-100%" }[layer.alignH];
+  const ty = { top: "0%", middle: "-50%", bottom: "-100%" }[layer.alignV];
+
   const karaoke = layer.animation === "karaoke";
   const durationSec = Math.max(0.3, block.end - block.start);
 
@@ -106,6 +124,13 @@ function LayerSpan({
       style={{
         left: `${pos.x * 100}%`,
         top: `${pos.y * 100}%`,
+        ["--cap-tx" as string]: tx,
+        ["--cap-ty" as string]: ty,
+        // Lines are pre-broken to match the export, so the box hugs its
+        // content (max-content) and keeps our explicit breaks (pre).
+        width: "max-content",
+        whiteSpace: "pre",
+        textAlign: layer.alignH,
         fontSize: `${fontPx}px`,
         fontFamily: `"${layer.fontFamily}", sans-serif`,
         fontWeight: layer.bold ? 700 : 400,
@@ -134,7 +159,7 @@ function LayerSpan({
         setDragPos(null);
       }}
     >
-      {text}
+      {lines.join("\n")}
     </span>
   );
 }
@@ -153,13 +178,27 @@ export function CaptionPreview({
   const blocks = useAppStore((s) => s.blocks);
   const currentTime = useAppStore((s) => s.currentTime);
 
+  // Track the frame's on-screen size reactively: reading clientHeight during
+  // render caught it at 0 before layout, so caption font size and wrapping came
+  // out wrong. A ResizeObserver re-renders whenever the video box resizes.
+  const [frame, setFrame] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = container.current;
+    if (!el) return;
+    const measure = () => setFrame({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [container]);
+
   // Preview the playhead's block, or the first one so there is always
   // something to drag and style.
   const active = findActiveBlock(blocks, currentTime) ?? blocks[0];
   if (!active) return null;
 
-  const frame = container.current;
-  const frameH = frame?.clientHeight ?? 0;
+  const frameW = frame.w;
+  const frameH = frame.h;
   const video = getMedia() as HTMLVideoElement | null;
   // Outline/shadow are in video pixels; scale them to the on-screen frame.
   const scale = video?.videoHeight ? frameH / video.videoHeight : 0.3;
@@ -171,6 +210,7 @@ export function CaptionPreview({
           key={layer.id}
           layer={layer}
           block={active}
+          frameW={frameW}
           frameH={frameH}
           scale={scale}
           container={container}

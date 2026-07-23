@@ -17,7 +17,15 @@ import {
   setPlaybackRate,
   togglePlay,
 } from "../lib/player";
-import { Repeat } from "lucide-react";
+import {
+  FastForward,
+  Pause,
+  Play,
+  Repeat,
+  Rewind,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { waveformPeaks, type Waveform } from "../lib/audio/tauri";
 import { THEME_EVENT, waveColors } from "../lib/theme";
 import { CaptionPreview } from "./CaptionPreview";
@@ -59,6 +67,17 @@ function whenDuration(el: HTMLMediaElement): Promise<number> {
     const timer = setTimeout(() => done(0), METADATA_TIMEOUT_MS);
     el.addEventListener("loadedmetadata", onMeta);
   });
+}
+
+/** Seconds → `m:ss` (or `h:mm:ss`), the compact form transport bars use. */
+function fmtClock(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
+  const total = Math.floor(seconds);
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
 }
 
 /** Region labels live in wavesurfer's shadow DOM, so style them inline. */
@@ -120,9 +139,43 @@ export function PlayerPane() {
   const [waveError, setWaveError] = useState<string | null>(null);
   const [rate, setRate] = useState(getPlaybackRate());
   const [loop, setLoop] = useState(false);
+  // Transport state mirrored off the media element for the custom controls —
+  // the native overlay is off so captions preview on a clean picture.
+  const [paused, setPaused] = useState(true);
+  const [duration, setDuration] = useState(0);
+  const [muted, setMuted] = useState(false);
   /** Block to loop: the last one the playhead was inside. */
   const loopTarget = useRef<SubtitleBlock | null>(null);
   if (activeBlock) loopTarget.current = activeBlock;
+
+  // Keep the transport bar in sync with the element, bound as soon as the
+  // media swaps rather than waiting for the waveform to decode.
+  useEffect(() => {
+    const el = mediaRef.current;
+    if (!el || !mediaUrl) return;
+    setPaused(el.paused);
+    setDuration(Number.isFinite(el.duration) ? el.duration : 0);
+    setMuted(el.muted);
+    const onPlay = () => setPaused(false);
+    const onPause = () => setPaused(true);
+    const onDuration = () =>
+      setDuration(Number.isFinite(el.duration) ? el.duration : 0);
+    const onVolume = () => setMuted(el.muted);
+    el.addEventListener("play", onPlay);
+    el.addEventListener("pause", onPause);
+    el.addEventListener("ended", onPause);
+    el.addEventListener("loadedmetadata", onDuration);
+    el.addEventListener("durationchange", onDuration);
+    el.addEventListener("volumechange", onVolume);
+    return () => {
+      el.removeEventListener("play", onPlay);
+      el.removeEventListener("pause", onPause);
+      el.removeEventListener("ended", onPause);
+      el.removeEventListener("loadedmetadata", onDuration);
+      el.removeEventListener("durationchange", onDuration);
+      el.removeEventListener("volumechange", onVolume);
+    };
+  }, [mediaUrl]);
 
   // Decode the envelope with ffmpeg. wavesurfer would otherwise fetch the media
   // and hand it to `decodeAudioData`, which fails on most video containers and
@@ -392,11 +445,13 @@ export function PlayerPane() {
         />
       ) : (
         <div className="media-frame" ref={frameRef}>
+          {/* No native controls: their dark gradient sat over the picture and
+              fought the caption preview. The transport bar below replaces them. */}
           <video
             ref={mediaRef as React.RefObject<HTMLVideoElement>}
             src={mediaUrl}
-            controls
             className="media"
+            onClick={togglePlay}
           />
           {workspaceTab === "captions" ? (
             <CaptionPreview container={frameRef} />
@@ -412,6 +467,59 @@ export function PlayerPane() {
               </div>
             )
           )}
+        </div>
+      )}
+      {mediaKind !== "audio" && (
+        <div className="transport">
+          <button
+            className="icon-only"
+            onClick={() => seekBy(-5)}
+            title={t("player.back5")}
+            aria-label={t("player.back5")}
+          >
+            <Rewind size={14} />
+          </button>
+          <button
+            className="icon-only transport-play"
+            onClick={togglePlay}
+            title={paused ? t("player.play") : t("player.pause")}
+            aria-label={paused ? t("player.play") : t("player.pause")}
+          >
+            {paused ? <Play size={14} /> : <Pause size={14} />}
+          </button>
+          <button
+            className="icon-only"
+            onClick={() => seekBy(5)}
+            title={t("player.fwd5")}
+            aria-label={t("player.fwd5")}
+          >
+            <FastForward size={14} />
+          </button>
+          <span className="transport-time">{fmtClock(currentTime)}</span>
+          <input
+            className="transport-seek"
+            type="range"
+            min={0}
+            max={Math.max(duration, wave?.durationSec ?? 0, 0.01)}
+            step={0.01}
+            value={Math.min(currentTime, duration || Infinity)}
+            aria-label={t("player.seek")}
+            onChange={(e) => seekTo(Number(e.target.value))}
+          />
+          <span className="transport-time">
+            {fmtClock(duration || (wave?.durationSec ?? 0))}
+          </span>
+          <button
+            className="icon-only"
+            onClick={() => {
+              const el = mediaRef.current;
+              if (el) el.muted = !el.muted;
+            }}
+            title={muted ? t("player.unmute") : t("player.mute")}
+            aria-label={muted ? t("player.unmute") : t("player.mute")}
+          >
+            {muted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+          </button>
         </div>
       )}
       <div ref={waveRef} className="waveform" />

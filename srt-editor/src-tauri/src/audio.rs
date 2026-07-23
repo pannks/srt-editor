@@ -11,8 +11,36 @@ pub struct ChunkInfo {
     pub duration_sec: f64,
 }
 
-/// GUI apps on macOS don't inherit the shell PATH, so fall back to common install locations.
+/// Locate `ffmpeg`/`ffprobe`, preferring a copy shipped inside the app so a
+/// released build works without the user installing anything.
+///
+/// Order: an explicit override dir (`SRT_FFMPEG_DIR`, for tests and power
+/// users), then the directory of the running executable — where Tauri places
+/// `externalBin` sidecars — then the usual Homebrew/system locations (GUI apps
+/// on macOS don't inherit the shell PATH), and finally the bare name so a
+/// PATH-resolvable binary still works in `bun run tauri dev`.
 pub fn resolve_bin(name: &str) -> String {
+    let exe_ext = if cfg!(windows) { ".exe" } else { "" };
+    let file = format!("{name}{exe_ext}");
+
+    // 1. Explicit override, and 2. next to the executable (the bundled sidecar).
+    let mut roots: Vec<PathBuf> = Vec::new();
+    if let Ok(dir) = std::env::var("SRT_FFMPEG_DIR") {
+        roots.push(PathBuf::from(dir));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(dir) = exe.parent() {
+            roots.push(dir.to_path_buf());
+        }
+    }
+    for root in &roots {
+        let candidate = root.join(&file);
+        if candidate.exists() {
+            return candidate.to_string_lossy().into_owned();
+        }
+    }
+
+    // 3. Common install locations.
     let candidates = [
         format!("/opt/homebrew/bin/{name}"),
         format!("/usr/local/bin/{name}"),

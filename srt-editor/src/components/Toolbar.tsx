@@ -58,7 +58,11 @@ export function Toolbar() {
   const pickSrt = async () => {
     const path = await open({
       multiple: false,
-      filters: [{ name: "SubRip", extensions: ["srt"] }],
+      filters: [
+        { name: "Subtitles", extensions: ["srt", "vtt"] },
+        { name: "SubRip", extensions: ["srt"] },
+        { name: "WebVTT", extensions: ["vtt"] },
+      ],
     });
     if (typeof path === "string") await openPath(path);
   };

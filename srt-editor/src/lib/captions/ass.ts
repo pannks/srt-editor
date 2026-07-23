@@ -1,5 +1,6 @@
 import type { SubtitleBlock } from "../blocks/types";
 import { captionText, type CaptionLayer } from "./types";
+import { wrapCaptionLines } from "./wrap";
 
 /**
  * Build an ASS (Advanced SubStation) script for ffmpeg's libass filter.
@@ -77,6 +78,37 @@ export interface VideoDims {
   height: number;
 }
 
+/**
+ * ASS `\an` numpad alignment: 1–3 bottom, 4–6 middle, 7–9 top; the column is
+ * left/center/right. With `\pos` it decides which point of the text box sits
+ * on the coordinate, and how wrapped lines align.
+ */
+export function assAlignment(layer: Pick<CaptionLayer, "alignH" | "alignV">): number {
+  const col = { left: 1, center: 2, right: 3 }[layer.alignH];
+  const row = { bottom: 0, middle: 3, top: 6 }[layer.alignV];
+  return row + col;
+}
+
+/**
+ * libass wraps at PlayResX − MarginL − MarginR even under `\pos`, so the wrap
+ * width becomes a pair of margins around the anchor. Clamped to the frame, so
+ * an anchor near an edge just wraps earlier on that side.
+ */
+export function wrapMargins(
+  layer: Pick<CaptionLayer, "posX" | "alignH" | "widthPct">,
+  dims: VideoDims,
+): { marginL: number; marginR: number } {
+  const x = layer.posX * dims.width;
+  const w = layer.widthPct * dims.width;
+  const left =
+    layer.alignH === "left" ? x : layer.alignH === "right" ? x - w : x - w / 2;
+  const right = left + w;
+  return {
+    marginL: Math.max(0, Math.round(left)),
+    marginR: Math.max(0, Math.round(dims.width - right)),
+  };
+}
+
 /** The `Style:` line for one layer, named `Caption{index}`. */
 function styleLine(layer: CaptionLayer, index: number, dims: VideoDims): string {
   const fontSize = Math.max(8, Math.round((layer.fontSizePct / 100) * dims.height));
@@ -105,12 +137,26 @@ function styleLine(layer: CaptionLayer, index: number, dims: VideoDims): string 
     borderStyle,
     layer.outlineWidth,
     layer.shadow,
-    5, // \an5: the position tag anchors the caption's centre
+    assAlignment(layer), // which point of the box the \pos tag anchors
     0,
     0,
     0,
     1,
   ].join(",");
+}
+
+/**
+ * Karaoke across wrapped lines: each line gets its share of the duration by
+ * length, then `karaokeText` distributes that within the line. Lines join with
+ * the ASS hard break so the sweep spans the whole caption.
+ */
+function karaokeLines(lines: string[], durationSec: number): string {
+  const weight = lines.reduce((sum, l) => sum + Math.max(1, l.length), 0);
+  return lines
+    .map((line) =>
+      karaokeText(escapeAssText(line), durationSec * (Math.max(1, line.length) / weight)),
+    )
+    .join("\\N");
 }
 
 /** The `Dialogue:` lines one layer contributes across every block. */
@@ -122,16 +168,27 @@ function layerEvents(
 ): string[] {
   const x = Math.round(layer.posX * dims.width);
   const y = Math.round(layer.posY * dims.height);
-  const tags = `\\an5\\pos(${x},${y})${animationTags(layer)}`;
+  const fontPx = (layer.fontSizePct / 100) * dims.height;
+  const maxWidthPx = layer.widthPct * dims.width;
+  const tags = `\\an${assAlignment(layer)}\\pos(${x},${y})${animationTags(layer)}`;
   return blocks.flatMap((block) => {
     const raw = captionText(block, layer);
     if (raw === "") return [];
-    const text =
+    // Pre-wrap with the shared breaker so the export matches the preview line
+    // for line; WrapStyle 2 keeps libass from re-wrapping our breaks.
+    const lines = wrapCaptionLines(
+      raw,
+      maxWidthPx,
+      fontPx,
+      layer.fontFamily || "Arial",
+      layer.bold,
+    );
+    const body =
       layer.animation === "karaoke"
-        ? karaokeText(escapeAssText(raw), block.end - block.start)
-        : escapeAssText(raw);
+        ? karaokeLines(lines, block.end - block.start)
+        : lines.map(escapeAssText).join("\\N");
     return [
-      `Dialogue: 0,${assTime(block.start)},${assTime(block.end)},Caption${index},,0,0,0,,{${tags}}${text}`,
+      `Dialogue: 0,${assTime(block.start)},${assTime(block.end)},Caption${index},,0,0,0,,{${tags}}${body}`,
     ];
   });
 }
@@ -150,7 +207,7 @@ export function buildAss(
 ScriptType: v4.00+
 PlayResX: ${dims.width}
 PlayResY: ${dims.height}
-WrapStyle: 0
+WrapStyle: 2
 ScaledBorderAndShadow: yes
 
 [V4+ Styles]

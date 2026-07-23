@@ -1,5 +1,9 @@
 export type CaptionAnimation = "none" | "fade" | "pop" | "karaoke";
 
+/** Where the caption box hangs off its anchor point, and how lines align. */
+export type CaptionAlignH = "left" | "center" | "right";
+export type CaptionAlignV = "top" | "middle" | "bottom";
+
 /**
  * One line of burned-in caption. Several layers stack on the same video —
  * e.g. Thai over English over Chinese — each fully and independently styled.
@@ -24,9 +28,17 @@ export interface CaptionLayer {
   bgColor: string;
   /** 0–1; becomes the box alpha in the export. */
   bgOpacity: number;
-  /** Caption centre as fractions of the frame, 0,0 = top-left. */
+  /** Caption anchor as fractions of the frame, 0,0 = top-left. */
   posX: number;
   posY: number;
+  /**
+   * Which point of the text box sits on posX/posY, doubling as the line
+   * alignment for wrapped text (left/center/right).
+   */
+  alignH: CaptionAlignH;
+  alignV: CaptionAlignV;
+  /** Wrap width as a fraction of the frame width. */
+  widthPct: number;
   animation: CaptionAnimation;
 }
 
@@ -79,6 +91,9 @@ const BASE_LAYER: Omit<CaptionLayer, "id" | "language" | "posY"> = {
   bgColor: "#000000",
   bgOpacity: 0.6,
   posX: 0.5,
+  alignH: "center",
+  alignV: "middle",
+  widthPct: 0.9,
   animation: "none",
 };
 

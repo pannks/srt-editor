@@ -13,6 +13,8 @@ export interface NameTokens {
   lang?: string;
   /** Defaults to today. */
   date?: Date;
+  /** Output extension without the dot; defaults to `srt`. */
+  ext?: string;
 }
 
 /** File name without directory or extension. */
@@ -40,11 +42,12 @@ export function sanitizeFileName(name: string): string {
 /**
  * Resolve `{media}`, `{project}`, `{lang}` and `{date}` and add the extension.
  *
- * The result carries exactly one dot, the one before `srt`: a name like
- * `clip.th.srt` reads as a second extension to players and file managers, and
- * some of them then treat `.th` as the format. Dots coming from the pattern or
- * from a media file called `my.video.mp4` become dashes. Empty tokens leave no
- * trace either — `{media}-{lang}` with no language is `clip.srt`, not `clip-.srt`.
+ * The result carries exactly one dot, the one before the extension: a name
+ * like `clip.th.srt` reads as a second extension to players and file managers,
+ * and some of them then treat `.th` as the format. Dots coming from the pattern
+ * or from a media file called `my.video.mp4` become dashes. Empty tokens leave
+ * no trace either — `{media}-{lang}` with no language is `clip.srt`, not
+ * `clip-.srt`.
  */
 export function buildExportName(
   prefix: string,
@@ -64,11 +67,11 @@ export function buildExportName(
   );
 
   const stem = `${prefix}${resolved}`
-    // `.srt` must be the only extension the name has.
+    // The extension must be the only dot the name has.
     .replace(/\./g, "-")
     // Separators left stranded by an empty token, or by the line above.
     .replace(/[\-_ ]{2,}/g, (run) => run[0])
     .replace(/^[\-_ ]+|[\-_ ]+$/g, "");
 
-  return `${sanitizeFileName(stem) || "subtitles"}.srt`;
+  return `${sanitizeFileName(stem) || "subtitles"}.${tokens.ext ?? "srt"}`;
 }

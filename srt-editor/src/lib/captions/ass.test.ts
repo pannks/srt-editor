@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { assColor, assTime, buildAss, escapeAssText, karaokeText } from "./ass";
+import {
+  assAlignment,
+  assColor,
+  assTime,
+  buildAss,
+  escapeAssText,
+  karaokeText,
+  wrapMargins,
+} from "./ass";
 import { makeCaptionLayer, type CaptionLayer } from "./types";
 import type { SubtitleBlock } from "../blocks/types";
 
@@ -57,7 +65,55 @@ describe("karaokeText", () => {
   });
 });
 
+describe("assAlignment", () => {
+  it("maps anchor pairs onto the \\an numpad", () => {
+    expect(assAlignment({ alignH: "center", alignV: "middle" })).toBe(5);
+    expect(assAlignment({ alignH: "left", alignV: "bottom" })).toBe(1);
+    expect(assAlignment({ alignH: "right", alignV: "top" })).toBe(9);
+  });
+});
+
+describe("wrapMargins", () => {
+  it("splits the leftover width around a centred anchor", () => {
+    const m = wrapMargins({ posX: 0.5, alignH: "center", widthPct: 0.5 }, dims);
+    expect(m).toEqual({ marginL: 270, marginR: 270 });
+  });
+
+  it("hangs the box off the anchor for edge alignments", () => {
+    expect(
+      wrapMargins({ posX: 0.1, alignH: "left", widthPct: 0.5 }, dims),
+    ).toEqual({ marginL: 108, marginR: 432 });
+    expect(
+      wrapMargins({ posX: 0.9, alignH: "right", widthPct: 0.5 }, dims),
+    ).toEqual({ marginL: 432, marginR: 108 });
+  });
+
+  it("clamps when the box would leave the frame", () => {
+    const m = wrapMargins({ posX: 0.05, alignH: "center", widthPct: 0.9 }, dims);
+    expect(m.marginL).toBe(0);
+    expect(m.marginR).toBeGreaterThan(0);
+  });
+});
+
 describe("buildAss", () => {
+  it("carries the alignment into the style and the position tag", () => {
+    const out = buildAss(
+      [block(0, 1, "hi")],
+      one({ alignH: "left", alignV: "bottom" }),
+      dims,
+    );
+    expect(out).toContain("\\an1\\pos(");
+  });
+
+  it("pre-wraps with explicit breaks and no auto-wrap, not margins", () => {
+    // Lines are broken by the shared wrapper (which needs a DOM); in Node it
+    // returns the text unwrapped, so a dialogue carries zero margins and the
+    // script disables libass auto-wrap.
+    const out = buildAss([block(0, 1, "hi")], one({ widthPct: 0.5 }), dims);
+    expect(out).toContain("WrapStyle: 2");
+    expect(out).toContain(",Caption0,,0,0,0,,");
+  });
+
   it("emits a playres header matching the video", () => {
     const out = buildAss([block(0, 1, "hi")], one(), dims);
     expect(out).toContain("PlayResX: 1080");

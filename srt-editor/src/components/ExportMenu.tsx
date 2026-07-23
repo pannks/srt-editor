@@ -6,6 +6,7 @@ import { toast } from "../state/toasts";
 import { useT } from "../state/useT";
 import { saveTextFile } from "../lib/audio/tauri";
 import { blocksToSrt, type SrtOptions } from "../lib/srt/generate";
+import { blocksToVtt } from "../lib/vtt/generate";
 import { buildExportName } from "../lib/srt/naming";
 import { translatedLanguages } from "../lib/blocks/translations";
 import { languageTag } from "../lib/i18n/languages";
@@ -24,7 +25,13 @@ export function ExportMenu() {
   const t = useT();
 
   const [openMenu, setOpenMenu] = useState(false);
+  const [format, setFormat] = useState<"srt" | "vtt">("srt");
   const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  // The two subtitle formats differ only in serializer, filter and extension;
+  // everything downstream (language selection, naming) is shared.
+  const serialize = format === "vtt" ? blocksToVtt : blocksToSrt;
+  const filterName = format === "vtt" ? "WebVTT" : "SubRip";
 
   // Languages worth offering: the configured targets plus anything already
   // translated, so a project opened with other targets still exports.
@@ -51,19 +58,20 @@ export function ExportMenu() {
       mediaPath,
       projectName,
       lang,
+      ext: format,
     });
 
   const exportOne = async (options: SrtOptions, lang?: string) => {
     setOpenMenu(false);
     const path = await save({
       defaultPath: fileName(lang),
-      filters: [{ name: "SubRip", extensions: ["srt"] }],
+      filters: [{ name: filterName, extensions: [format] }],
     });
     if (!path) return;
     try {
-      await saveTextFile(path, blocksToSrt(blocks, options));
-      appendLog(`Exported SRT: ${path}`, "ok");
-      toast.ok(`Exported SRT: ${path}`);
+      await saveTextFile(path, serialize(blocks, options));
+      appendLog(`Exported ${filterName}: ${path}`, "ok");
+      toast.ok(`Exported ${filterName}: ${path}`);
     } catch (e) {
       appendLog(`Export failed: ${e}`, "err");
       toast.err(`Export failed: ${e}`);
@@ -85,8 +93,8 @@ export function ExportMenu() {
     for (const job of jobs) {
       const path = `${dir.replace(/[\\/]+$/, "")}/${job.name}`;
       try {
-        await saveTextFile(path, blocksToSrt(blocks, job.options));
-        appendLog(`Exported SRT: ${path}`, "ok");
+        await saveTextFile(path, serialize(blocks, job.options));
+        appendLog(`Exported ${filterName}: ${path}`, "ok");
       } catch (e) {
         failed += 1;
         appendLog(`Export failed (${job.name}): ${e}`, "err");
@@ -109,6 +117,23 @@ export function ExportMenu() {
       </button>
       {openMenu && (
         <div className="menu" role="menu">
+          <div
+            className="menu-format"
+            role="group"
+            aria-label={t("export.format")}
+          >
+            {(["srt", "vtt"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                className={format === f ? "active" : undefined}
+                aria-pressed={format === f}
+                onClick={() => setFormat(f)}
+              >
+                {f.toUpperCase()}
+              </button>
+            ))}
+          </div>
           <button role="menuitem" onClick={() => exportOne({})}>
             {t("export.original")}
           </button>

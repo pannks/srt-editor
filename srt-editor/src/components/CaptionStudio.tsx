@@ -2,7 +2,18 @@ import { useEffect, useMemo } from "react";
 import { save } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import { Clapperboard, Loader2, RotateCcw, Trash2 } from "lucide-react";
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyEnd,
+  AlignVerticalJustifyStart,
+  Clapperboard,
+  Loader2,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import { useAppStore } from "../state/store";
 import { toast } from "../state/toasts";
 import { useT } from "../state/useT";
@@ -10,6 +21,8 @@ import {
   CAPTION_FONTS,
   MAX_FONT_PCT,
   MIN_FONT_PCT,
+  type CaptionAlignH,
+  type CaptionAlignV,
   type CaptionAnimation,
   type CaptionLayer,
 } from "../lib/captions/types";
@@ -20,6 +33,18 @@ import { languageLabel } from "../lib/i18n/languages";
 import { getMedia } from "../lib/player";
 
 const ANIMATIONS: CaptionAnimation[] = ["none", "fade", "pop", "karaoke"];
+
+/** Segmented pickers for the box anchor; icons read faster than words here. */
+const ALIGN_H: { value: CaptionAlignH; Icon: typeof AlignLeft }[] = [
+  { value: "left", Icon: AlignLeft },
+  { value: "center", Icon: AlignCenter },
+  { value: "right", Icon: AlignRight },
+];
+const ALIGN_V: { value: CaptionAlignV; Icon: typeof AlignLeft }[] = [
+  { value: "top", Icon: AlignVerticalJustifyStart },
+  { value: "middle", Icon: AlignVerticalJustifyCenter },
+  { value: "bottom", Icon: AlignVerticalJustifyEnd },
+];
 
 /**
  * Style controls for the burned-in captions. Several layers stack on the video
@@ -222,6 +247,56 @@ export function CaptionStudio() {
                   </option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* Layout: how the box hangs off the drag point, and its wrap width. */}
+          <div className="cap-section">
+            <div className="cap-row">
+              <span>{t("captions.alignH")}</span>
+              <span className="cap-seg">
+                {ALIGN_H.map(({ value, Icon }) => (
+                  <button
+                    key={value}
+                    className={layer.alignH === value ? "current" : ""}
+                    title={t(`captions.alignH.${value}` as Parameters<typeof t>[0])}
+                    aria-pressed={layer.alignH === value}
+                    onClick={() => patch({ alignH: value })}
+                  >
+                    <Icon size={13} />
+                  </button>
+                ))}
+              </span>
+            </div>
+            <div className="cap-row">
+              <span>{t("captions.alignV")}</span>
+              <span className="cap-seg">
+                {ALIGN_V.map(({ value, Icon }) => (
+                  <button
+                    key={value}
+                    className={layer.alignV === value ? "current" : ""}
+                    title={t(`captions.alignV.${value}` as Parameters<typeof t>[0])}
+                    aria-pressed={layer.alignV === value}
+                    onClick={() => patch({ alignV: value })}
+                  >
+                    <Icon size={13} />
+                  </button>
+                ))}
+              </span>
+            </div>
+            <div className="cap-row">
+              <span>{t("captions.width")}</span>
+              <span className="cap-slider">
+                <input
+                  type="range"
+                  min={0.2}
+                  max={1}
+                  step={0.05}
+                  value={layer.widthPct}
+                  onChange={(e) => patch({ widthPct: Number(e.target.value) })}
+                />
+                <em>{Math.round(layer.widthPct * 100)}%</em>
+              </span>
             </div>
           </div>
 
