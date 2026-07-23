@@ -178,19 +178,43 @@ export function CaptionPreview({
   const blocks = useAppStore((s) => s.blocks);
   const currentTime = useAppStore((s) => s.currentTime);
 
-  // Track the frame's on-screen size reactively: reading clientHeight during
-  // render caught it at 0 before layout, so caption font size and wrapping came
-  // out wrong. A ResizeObserver re-renders whenever the video box resizes.
+  // Track the frame's on-screen size reactively. Reading clientHeight during
+  // render caught it at 0 before layout; observing once by ref identity left it
+  // stuck when the frame settled to its real size later or the node was swapped
+  // on a layout/media change. So: one ResizeObserver, re-pointed at the current
+  // node on every render, plus a guarded re-measure that converges to the live
+  // size — both size changes and node swaps now keep the font in step.
   const [frame, setFrame] = useState({ w: 0, h: 0 });
+  const roRef = useRef<ResizeObserver | null>(null);
+  const nodeRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
+    if (!roRef.current) {
+      roRef.current = new ResizeObserver(() => {
+        const el = nodeRef.current;
+        if (el) {
+          setFrame((p) =>
+            p.w === el.clientWidth && p.h === el.clientHeight
+              ? p
+              : { w: el.clientWidth, h: el.clientHeight },
+          );
+        }
+      });
+    }
     const el = container.current;
-    if (!el) return;
-    const measure = () => setFrame({ w: el.clientWidth, h: el.clientHeight });
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [container]);
+    if (el && el !== nodeRef.current) {
+      if (nodeRef.current) roRef.current.unobserve(nodeRef.current);
+      nodeRef.current = el;
+      roRef.current.observe(el);
+    }
+    if (el) {
+      setFrame((p) =>
+        p.w === el.clientWidth && p.h === el.clientHeight
+          ? p
+          : { w: el.clientWidth, h: el.clientHeight },
+      );
+    }
+  });
+  useEffect(() => () => roRef.current?.disconnect(), []);
 
   // Preview the playhead's block, or the first one so there is always
   // something to drag and style.
