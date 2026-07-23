@@ -80,6 +80,27 @@ export const en = {
 
   "process.title": "Process",
 
+  "tools.findReplace": "Find & replace (⌘F)",
+  "tools.find": "Find",
+  "tools.replaceWith": "Replace with",
+  "tools.matchCase": "Match case",
+  "tools.inTranslations": "Include translations",
+  "tools.matches": "{count} match(es)",
+  "tools.replaceAll": "Replace all",
+  "tools.replaced": "Replaced {count} occurrence(s)",
+  "tools.noMatches": "No matches",
+  "tools.close": "Close",
+  "tools.timing": "Adjust timing",
+  "tools.offset": "Shift all blocks (seconds, negative = earlier)",
+  "tools.offsetApply": "Shift",
+  "tools.stretch": "Stretch factor (1 = unchanged)",
+  "tools.stretchApply": "Stretch",
+  "tools.timingHint":
+    "Shift moves every block by the same amount — for subtitles that are early or late. Stretch multiplies every time by the factor, anchored at 0:00 — for drift from a frame-rate mismatch (25 → 23.976 fps ≈ ×1.0427).",
+  "tools.shifted": "Shifted {count} block(s) by {secs}s",
+  "tools.stretched": "Stretched {count} block(s) by ×{factor}",
+  "tools.undoHint": "Undo the last bulk edit (replace or retiming)",
+
   "workspace.blocks": "Subtitles",
   "workspace.captions": "Caption Studio",
 

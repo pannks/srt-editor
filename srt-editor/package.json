@@ -12,6 +12,7 @@
     "version": "bun scripts/bump-version.ts"
   },
   "dependencies": {
+    "@lobehub/icons": "^5.14.0",
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.2",
     "@tauri-apps/plugin-opener": "^2",

@@ -4,9 +4,24 @@
     {
       "name": "srt-editor",
       "runtimeExecutable": "bun",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "cwd": "srt-editor",
       "port": 1420
+    },
+    {
+      "name": "srt-editor-alt",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--port",
+        "1422"
+      ],
+      "cwd": "srt-editor",
+      "port": 1422
     }
   ]
 }

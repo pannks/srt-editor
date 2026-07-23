@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { ModelIcon } from "@lobehub/icons";
 import {
   Eye,
   EyeOff,
@@ -13,6 +14,7 @@ import {
   X,
 } from "lucide-react";
 import { useAppStore, type Settings } from "../state/store";
+import { ProviderLogo } from "./ProviderLogo";
 import { toast } from "../state/toasts";
 import { useT } from "../state/useT";
 import { isThemeMode } from "../lib/theme";
@@ -24,11 +26,7 @@ import {
   TRANSCRIBE_PROVIDERS,
   normalizeTranscription,
 } from "../lib/transcribe/types";
-import {
-  applySettingsProfile,
-  profileFromSettings,
-  profileSummary,
-} from "../lib/profiles";
+import { applySettingsProfile, profileFromSettings } from "../lib/profiles";
 import {
   applyProvider,
   DEFAULT_TRANSLATION_PROMPT,
@@ -254,25 +252,32 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       <>
         <label>
           {t("settings.translationProvider")}
-          <select
-            value={cfg.provider}
-            onChange={(e) => changeProvider(stage, e.target.value as ProviderId)}
-          >
-            <optgroup label={t("settings.providerLocalGroup")}>
-              {providers.local.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </optgroup>
-            <optgroup label={t("settings.providerCloudGroup")}>
-              {providers.cloud.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </optgroup>
-          </select>
+          <span className="field-row">
+            <span className="brand-icon" aria-hidden>
+              <ProviderLogo id={cfg.provider} size={18} />
+            </span>
+            <select
+              value={cfg.provider}
+              onChange={(e) =>
+                changeProvider(stage, e.target.value as ProviderId)
+              }
+            >
+              <optgroup label={t("settings.providerLocalGroup")}>
+                {providers.local.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label={t("settings.providerCloudGroup")}>
+                {providers.cloud.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </optgroup>
+            </select>
+          </span>
         </label>
 
         {spec.editableBaseUrl && (
@@ -318,6 +323,9 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             ? t("settings.model")
             : t("settings.translationModel")}
           <span className="field-row">
+            <span className="brand-icon" aria-hidden>
+              <ModelIcon model={cfg.model} size={18} />
+            </span>
             <input
               type="text"
               value={cfg.model}
@@ -654,7 +662,15 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                     <div key={p.id} className="project">
                       <div className="project-main">
                         <strong>{p.name}</strong>
-                        <span className="muted">{profileSummary(p)}</span>
+                        <span className="muted profile-models">
+                          <ProviderLogo id={p.transcription.provider} size={14} />
+                          <ModelIcon model={p.transcription.model} size={14} />
+                          {p.transcription.model || "—"}
+                          <span aria-hidden>→</span>
+                          <ProviderLogo id={p.translation.provider} size={14} />
+                          <ModelIcon model={p.translation.model} size={14} />
+                          {p.translation.model || "—"}
+                        </span>
                       </div>
                       <button
                         onClick={() => loadProfile(p.id)}

@@ -76,6 +76,27 @@ export const th: Dict = {
 
   "process.title": "ขั้นตอน",
 
+  "tools.findReplace": "ค้นหาและแทนที่ (⌘F)",
+  "tools.find": "ค้นหา",
+  "tools.replaceWith": "แทนที่ด้วย",
+  "tools.matchCase": "ตรงตามตัวพิมพ์",
+  "tools.inTranslations": "รวมคำแปลด้วย",
+  "tools.matches": "พบ {count} ตำแหน่ง",
+  "tools.replaceAll": "แทนที่ทั้งหมด",
+  "tools.replaced": "แทนที่แล้ว {count} ตำแหน่ง",
+  "tools.noMatches": "ไม่พบข้อความที่ค้นหา",
+  "tools.close": "ปิด",
+  "tools.timing": "ปรับเวลาแบบกลุ่ม",
+  "tools.offset": "เลื่อนทุกบล็อก (วินาที ค่าลบ = เร็วขึ้น)",
+  "tools.offsetApply": "เลื่อน",
+  "tools.stretch": "ตัวคูณยืดเวลา (1 = ไม่เปลี่ยน)",
+  "tools.stretchApply": "ยืดเวลา",
+  "tools.timingHint":
+    "เลื่อน = ขยับทุกบล็อกเท่ากัน สำหรับซับที่มาเร็วหรือช้าทั้งไฟล์ · ยืดเวลา = คูณเวลาทุกจุดด้วยตัวคูณโดยยึด 0:00 สำหรับซับที่เพี้ยนจากเฟรมเรตไม่ตรง (25 → 23.976 fps ≈ ×1.0427)",
+  "tools.shifted": "เลื่อน {count} บล็อกไป {secs} วินาที",
+  "tools.stretched": "ยืดเวลา {count} บล็อกด้วย ×{factor}",
+  "tools.undoHint": "เลิกทำการแก้ไขแบบกลุ่มครั้งล่าสุด (แทนที่หรือปรับเวลา)",
+
   "workspace.blocks": "ซับไตเติล",
   "workspace.captions": "สตูดิโอแคปชัน",
 

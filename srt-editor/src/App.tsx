@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Clock, Search, Undo2 } from "lucide-react";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWebview } from "@tauri-apps/api/webview";
 import { DEFAULT_SETTINGS, hydrateSettings, useAppStore } from "./state/store";
@@ -15,6 +16,8 @@ import { PlayerPane } from "./components/PlayerPane";
 import { ProcessPanel } from "./components/ProcessPanel";
 import { BlockList } from "./components/BlockList";
 import { CaptionStudio } from "./components/CaptionStudio";
+import { FindReplaceBar } from "./components/FindReplaceBar";
+import { TimingDialog } from "./components/TimingDialog";
 import { Splitter } from "./components/Splitter";
 import { Toasts } from "./components/Toasts";
 import "./App.css";
@@ -33,8 +36,26 @@ function App() {
   const mediaUrl = useAppStore((s) => s.mediaUrl);
   const workspaceTab = useAppStore((s) => s.workspaceTab);
   const setWorkspaceTab = useAppStore((s) => s.setWorkspaceTab);
+  const hasBlocks = useAppStore((s) => s.blocks.length > 0);
+  const canUndoBulk = useAppStore((s) => s.blocksBackup !== null);
+  const undoBulkEdit = useAppStore((s) => s.undoBulkEdit);
   const [dragging, setDragging] = useState(false);
+  const [showFind, setShowFind] = useState(false);
+  const [showTiming, setShowTiming] = useState(false);
   const t = useT();
+
+  // ⌘F / Ctrl+F opens find & replace while the block list is on screen.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setShowFind(true);
+        useAppStore.getState().setWorkspaceTab("blocks");
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   useEffect(() => {
     const unlisten = listen<string>("process-log", (e) =>
@@ -170,7 +191,42 @@ function App() {
             >
               {t("workspace.captions")}
             </button>
+            <span className="spacer" />
+            {canUndoBulk && (
+              <button
+                className="icon-only"
+                title={t("tools.undoHint")}
+                aria-label={t("tools.undoHint")}
+                onClick={() => undoBulkEdit()}
+              >
+                <Undo2 size={14} />
+              </button>
+            )}
+            <button
+              className="icon-only"
+              disabled={!hasBlocks}
+              title={t("tools.findReplace")}
+              aria-label={t("tools.findReplace")}
+              onClick={() => {
+                setWorkspaceTab("blocks");
+                setShowFind((v) => !v);
+              }}
+            >
+              <Search size={14} />
+            </button>
+            <button
+              className="icon-only"
+              disabled={!hasBlocks}
+              title={t("tools.timing")}
+              aria-label={t("tools.timing")}
+              onClick={() => setShowTiming(true)}
+            >
+              <Clock size={14} />
+            </button>
           </div>
+          {showFind && workspaceTab === "blocks" && (
+            <FindReplaceBar onClose={() => setShowFind(false)} />
+          )}
           {workspaceTab === "blocks" ? <BlockList /> : <CaptionStudio />}
         </div>
         <Splitter
@@ -186,6 +242,7 @@ function App() {
         />
         <ProcessPanel />
       </div>
+      {showTiming && <TimingDialog onClose={() => setShowTiming(false)} />}
       {dragging && <div className="drop-overlay">{t("player.drop")}</div>}
       <Toasts />
     </div>

@@ -426,6 +426,65 @@ textarea:focus {
 .workspace-tabs {
   padding: 0 14px;
   background: var(--bg-panel);
+  align-items: center;
+}
+
+.workspace-tabs button.icon-only {
+  margin: 2px 0;
+}
+
+/* Find & replace bar, between the tabs and the block list. */
+.find-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: var(--bg-panel);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.find-bar input[type="text"] {
+  flex: 1;
+  min-width: 120px;
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 8px;
+}
+
+.find-bar label.check {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.find-bar .find-count {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Brand/model logo beside a select or input. */
+.brand-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  flex-shrink: 0;
+  color: var(--text);
+}
+
+/* Profile rows: logos inline with the model names. */
+.profile-models {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
 }
 
 /* Caption Studio */

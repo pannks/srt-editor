@@ -58,8 +58,3 @@ export function applySettingsProfile(
     translation: { ...settings.translation, ...stage(profile.translation) },
   };
 }
-
-/** One line summarising a profile for the list. */
-export function profileSummary(profile: ModelProfile): string {
-  return `${profile.transcription.model} → ${profile.translation.model}`;
-}

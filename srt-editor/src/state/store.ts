@@ -192,6 +192,8 @@ interface AppState {
   /** Polled by the run between requests; see `requestStopTranslation`. */
   translateStopRequested: boolean;
   currentTime: number;
+  /** Snapshot taken before the last bulk edit (replace-all / retiming), for one-step undo. */
+  blocksBackup: SubtitleBlock[] | null;
   settings: Settings;
   /** Row id of the open project, or null when nothing has been saved yet. */
   projectId: number | null;
@@ -230,6 +232,9 @@ interface AppState {
   cutAtCaret: (id: string, caret: number | null) => void;
   setTimes: (id: string, start: number, end: number) => void;
   remove: (id: string) => void;
+  /** Replace the whole list, keeping the previous list for `undoBulkEdit`. */
+  applyBulkEdit: (blocks: SubtitleBlock[]) => void;
+  undoBulkEdit: () => void;
   saveSettings: (s: Settings) => void;
   setLayout: (layout: Layout) => void;
   setTheme: (theme: ThemeMode) => void;
@@ -260,6 +265,7 @@ export const useAppStore = create<AppState>((set) => ({
   exportProgress: null,
   translateStopRequested: false,
   currentTime: 0,
+  blocksBackup: null,
   settings: loadSettings(),
   projectId: null,
   projectName: "Untitled project",
@@ -341,7 +347,13 @@ export const useAppStore = create<AppState>((set) => ({
     }),
   requestStopTranslation: () => set({ translateStopRequested: true }),
   setCurrentTime: (currentTime) => set({ currentTime }),
-  setBlocks: (blocks) => set({ blocks }),
+  // A fresh list (open, generate) makes any bulk-edit backup meaningless.
+  setBlocks: (blocks) => set({ blocks, blocksBackup: null }),
+  applyBulkEdit: (blocks) => set((s) => ({ blocks, blocksBackup: s.blocks })),
+  undoBulkEdit: () =>
+    set((s) =>
+      s.blocksBackup ? { blocks: s.blocksBackup, blocksBackup: null } : s,
+    ),
   editText: (id, text) =>
     set((s) => ({ blocks: updateBlockText(s.blocks, id, text) })),
   editTranslation: (id, lang, text) =>
@@ -392,6 +404,7 @@ export const useAppStore = create<AppState>((set) => ({
       mediaUrl: null,
       mediaKind: "video",
       blocks: [],
+      blocksBackup: null,
       currentTime: 0,
       progress: null,
       translateProgress: null,

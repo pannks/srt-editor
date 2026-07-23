@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   Captions,
@@ -25,11 +25,16 @@ import { generateBlocks } from "../lib/pipeline/generate";
 import { translateBlocks } from "../lib/translate/run";
 import { AUDIO_EXT, VIDEO_EXT } from "../lib/media/kind";
 import { APP_VERSION } from "../lib/version";
-import { SettingsDialog } from "./SettingsDialog";
 import { ProjectsDialog } from "./ProjectsDialog";
 import { ExportMenu } from "./ExportMenu";
 import { AboutDialog } from "./AboutDialog";
 import { OpProgress } from "./OpProgress";
+
+// The settings dialog carries the brand-icon set (~1.7 MB minified), which
+// nothing else uses — split it out so the editor itself loads without it.
+const SettingsDialog = lazy(() =>
+  import("./SettingsDialog").then((m) => ({ default: m.SettingsDialog })),
+);
 
 export function Toolbar() {
   const store = useAppStore();
@@ -265,7 +270,11 @@ export function Toolbar() {
         <Info size={14} />
       </button>
       <OpProgress />
-      {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
+      {showSettings && (
+        <Suspense fallback={null}>
+          <SettingsDialog onClose={() => setShowSettings(false)} />
+        </Suspense>
+      )}
       {showProjects && <ProjectsDialog onClose={() => setShowProjects(false)} />}
       {showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}
     </header>
