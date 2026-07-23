@@ -10,6 +10,7 @@ import { MIN_BLOCK_DURATION } from "../lib/blocks/ops";
 import type { SubtitleBlock } from "../lib/blocks/types";
 import { registerMedia, seekTo } from "../lib/player";
 import { waveformPeaks, type Waveform } from "../lib/audio/tauri";
+import { THEME_EVENT, waveColors } from "../lib/theme";
 
 /** Waveform zoom in pixels per second; `FIT` lets the whole clip fill the pane. */
 const FIT = 0;
@@ -57,7 +58,8 @@ function regionLabel(block: SubtitleBlock, index: number): HTMLElement {
   Object.assign(el.style, {
     fontSize: "10px",
     lineHeight: "1.2",
-    color: "#f0d9c4",
+    // Custom properties pierce the shadow DOM, so the label follows the theme.
+    color: "var(--wave-cursor)",
     padding: "2px 4px",
     display: "block",
     overflow: "hidden",
@@ -148,13 +150,14 @@ export function PlayerPane() {
 
     registerMedia(el);
     const regions = RegionsPlugin.create();
+    const colors = waveColors();
     const ws = WaveSurfer.create({
       container,
       media: el,
       height: 72,
-      waveColor: "#584a3e",
-      progressColor: "#d2782f",
-      cursorColor: "#f0d9c4",
+      waveColor: colors.wave,
+      progressColor: colors.progress,
+      cursorColor: colors.cursor,
       barWidth: 2,
       barGap: 1,
       autoScroll: true,
@@ -171,6 +174,17 @@ export function PlayerPane() {
     ws.on("error", (e) => appendLog(`Waveform error: ${e}`, "err"));
     wsRef.current = ws;
     regionsRef.current = regions;
+
+    // Canvas colors don't follow CSS variables; repaint on theme switches.
+    const onTheme = () => {
+      const next = waveColors();
+      ws.setOptions({
+        waveColor: next.wave,
+        progressColor: next.progress,
+        cursorColor: next.cursor,
+      });
+    };
+    window.addEventListener(THEME_EVENT, onTheme);
 
     // `timeupdate` only fires a few times a second, which is too coarse for the
     // subtitle overlay, so track playback per frame and fall back to the event
@@ -194,6 +208,7 @@ export function PlayerPane() {
     el.addEventListener("seeked", onTime);
     return () => {
       cancelAnimationFrame(frame);
+      window.removeEventListener(THEME_EVENT, onTheme);
       el.removeEventListener("play", onPlay);
       el.removeEventListener("pause", onStop);
       el.removeEventListener("ended", onStop);

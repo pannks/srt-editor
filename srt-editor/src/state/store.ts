@@ -25,6 +25,7 @@ import {
   DEFAULT_EXPORT_PREFIX,
 } from "../lib/srt/naming";
 import { isUiLanguage, type UiLanguage } from "../lib/i18n";
+import { isThemeMode, type ThemeMode } from "../lib/theme";
 import { migrateLegacySettings } from "../lib/settings/legacy";
 import { getSetting, setSetting } from "../lib/db/projects";
 
@@ -46,6 +47,8 @@ export interface Settings {
   chunkSecs: number;
   prompt: string;
   layout: Layout;
+  /** Color theme; `system` follows the OS preference live. */
+  theme: ThemeMode;
   /** Width of the player column in the `side` layout, pixels. */
   sidebarWidth: number;
   /** Width of the process log column, pixels. */
@@ -71,6 +74,7 @@ export const DEFAULT_SETTINGS: Settings = {
   chunkSecs: DEFAULT_CHUNK_SECS,
   prompt: DEFAULT_PROMPT,
   layout: "top",
+  theme: "dark",
   sidebarWidth: 360,
   processWidth: 320,
   uiLanguage: detectUiLanguage(),
@@ -99,11 +103,14 @@ export function mergeSettings(
   const current = migrateLegacySettings(
     patch as Partial<Settings> & Record<string, unknown>,
   );
-  return {
+  const merged = {
     ...base,
     ...current,
     translation: { ...base.translation, ...(current.translation ?? {}) },
   };
+  // A stored snapshot could carry anything; the attribute ends up on <html>.
+  if (!isThemeMode(merged.theme)) merged.theme = base.theme;
+  return merged;
 }
 
 /**
@@ -178,6 +185,7 @@ interface AppState {
   remove: (id: string) => void;
   saveSettings: (s: Settings) => void;
   setLayout: (layout: Layout) => void;
+  setTheme: (theme: ThemeMode) => void;
   setPaneWidth: (pane: "sidebarWidth" | "processWidth", px: number) => void;
   setProject: (id: number | null, name: string) => void;
   setEnv: (env: Partial<AppState["env"]>) => void;
@@ -252,6 +260,12 @@ export const useAppStore = create<AppState>((set) => ({
   setLayout: (layout) =>
     set((s) => {
       const settings = { ...s.settings, layout };
+      persistSettings(settings);
+      return { settings };
+    }),
+  setTheme: (theme) =>
+    set((s) => {
+      const settings = { ...s.settings, theme };
       persistSettings(settings);
       return { settings };
     }),

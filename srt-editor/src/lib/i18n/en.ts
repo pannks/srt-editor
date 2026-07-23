@@ -32,6 +32,16 @@ export const en = {
   "toolbar.unsaved": "unsaved",
   "toolbar.openProject": "Open project",
   "toolbar.version": "App version",
+  "toolbar.themeToLight": "Switch to the light theme",
+  "toolbar.themeToDark": "Switch to the dark theme",
+
+  "progress.preparing": "Preparing…",
+
+  "toast.generateDone": "Transcription finished — {count} block(s)",
+  "toast.generateFailed": "Generation failed: {error}",
+  "toast.translateDone": "Translation finished",
+  "toast.translateStopped": "Translation stopped — what was translated is kept",
+  "toast.translateFailed": "Translation failed: {error}",
 
   "export.original": "Original",
   "export.bilingual": "{lang} under the original",
@@ -76,6 +86,10 @@ export const en = {
   "settings.tab.export": "Export",
 
   "settings.uiLanguage": "Interface language",
+  "settings.theme": "Theme",
+  "settings.themeLight": "Light",
+  "settings.themeDark": "Dark",
+  "settings.themeSystem": "Follow the system",
   "settings.layout": "Layout",
   "settings.layoutTop": "Player on top",
   "settings.layoutSide": "Player in a sidebar",

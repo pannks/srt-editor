@@ -15,6 +15,32 @@
   --on-accent: #1a1108;
   --ok: #93bf6e;
   --err: #e0705c;
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  /* Canvas colors: wavesurfer cannot use var() and reads these computed. */
+  --wave: #584a3e;
+  --wave-progress: #d2782f;
+  --wave-cursor: #f0d9c4;
+}
+
+/* Warm cream counterpart; same accent family so the brand reads the same. */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #faf6f0;
+  --bg-panel: #f2ebe2;
+  --bg-raised: #eae0d3;
+  --border: #d8c9b8;
+  --text: #2e2620;
+  --muted: #83725f;
+  --accent: #c06820;
+  --accent-strong: #a05416;
+  --accent-soft: rgba(192, 104, 32, 0.14);
+  --on-accent: #fff8ee;
+  --ok: #4e7d2e;
+  --err: #b6412d;
+  --shadow: 0 8px 24px rgba(60, 45, 30, 0.18);
+  --wave: #c4b39e;
+  --wave-progress: #c06820;
+  --wave-cursor: #5a4632;
 }
 
 * {
@@ -154,6 +180,7 @@ textarea:focus {
 
 /* Toolbar */
 .toolbar {
+  position: relative; /* anchors the .op-progress strip */
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -161,6 +188,38 @@ textarea:focus {
   padding: 8px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
+}
+
+/* Run progress: a strip along the toolbar's bottom edge. */
+.op-progress {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  background: var(--accent-soft);
+  overflow: hidden;
+}
+
+.op-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+
+/* No counts yet — sweep until the pipeline reports numbers. */
+.op-fill.indeterminate {
+  width: 30%;
+  animation: sweep 1.2s ease-in-out infinite;
+}
+
+@keyframes sweep {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(440%);
+  }
 }
 
 /* The spacer only pushes things apart while everything fits on one row. */
@@ -738,7 +797,7 @@ button.tab.current {
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow);
 }
 
 .menu button {
@@ -875,9 +934,74 @@ button.tab.current {
   font-size: 16px;
   font-weight: 600;
   color: var(--text);
-  background: rgba(23, 20, 18, 0.78);
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
   border: 2px dashed var(--accent);
   pointer-events: none;
+}
+
+/* Toasts */
+.toasts {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 360px;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 12px;
+  text-align: left;
+  white-space: normal;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  animation: toast-in 0.18s ease-out;
+}
+
+.toast-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  margin-top: 1px;
+}
+
+.toast-ok .toast-icon {
+  color: var(--ok);
+}
+
+.toast-err .toast-icon {
+  color: var(--err);
+}
+
+.toast-info .toast-icon {
+  color: var(--accent);
+}
+
+.toast-err {
+  border-color: var(--err);
+}
+
+.toast-msg {
+  font-size: 12px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .wave-status {

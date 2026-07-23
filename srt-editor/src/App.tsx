@@ -8,11 +8,14 @@ import { checkFfmpeg } from "./lib/audio/tauri";
 import { dbVersion } from "./lib/db/projects";
 import { firstOpenable } from "./lib/media/kind";
 import { APP_VERSION } from "./lib/version";
+import { applyTheme } from "./lib/theme";
+import { toast } from "./state/toasts";
 import { Toolbar } from "./components/Toolbar";
 import { PlayerPane } from "./components/PlayerPane";
 import { ProcessPanel } from "./components/ProcessPanel";
 import { BlockList } from "./components/BlockList";
 import { Splitter } from "./components/Splitter";
+import { Toasts } from "./components/Toasts";
 import "./App.css";
 
 let booted = false;
@@ -22,6 +25,7 @@ function App() {
   const setEnv = useAppStore((s) => s.setEnv);
   const setPaneWidth = useAppStore((s) => s.setPaneWidth);
   const layout = useAppStore((s) => s.settings.layout);
+  const theme = useAppStore((s) => s.settings.theme);
   const sidebarWidth = useAppStore((s) => s.settings.sidebarWidth);
   const processWidth = useAppStore((s) => s.settings.processWidth);
   const [dragging, setDragging] = useState(false);
@@ -46,18 +50,39 @@ function App() {
           appendLog(`ffmpeg OK: ${v}`, "ok");
           setEnv({ ffmpeg: v });
         })
-        .catch((e) => appendLog(String(e), "err"));
+        .catch((e) => {
+          appendLog(String(e), "err");
+          toast.err(String(e));
+        });
     }
     return () => {
       unlisten.then((fn) => fn());
     };
   }, [appendLog, setEnv]);
 
+  // Resolve the theme to an attribute on <html>; follow the OS while on `system`.
+  useEffect(() => {
+    applyTheme(theme);
+    if (theme !== "system") return;
+    const mq = window.matchMedia("(prefers-color-scheme: light)");
+    const onChange = () => applyTheme(theme);
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [theme]);
+
   // Drop a video, an audio file or an SRT anywhere on the window to open it.
   useEffect(() => {
     let dispose: (() => void) | undefined;
     let cancelled = false;
-    void getCurrentWebview()
+    // Plain `bun run dev` has no Tauri webview: `getCurrentWebview()` throws
+    // synchronously there, which would take the whole tree down with it.
+    let webview: ReturnType<typeof getCurrentWebview>;
+    try {
+      webview = getCurrentWebview();
+    } catch {
+      return;
+    }
+    void webview
       .onDragDropEvent((event) => {
         const payload = event.payload;
         if (payload.type === "enter" || payload.type === "over") {
@@ -122,6 +147,7 @@ function App() {
         <ProcessPanel />
       </div>
       {dragging && <div className="drop-overlay">{t("player.drop")}</div>}
+      <Toasts />
     </div>
   );
 }

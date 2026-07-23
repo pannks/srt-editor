@@ -11,7 +11,9 @@ import {
   X,
 } from "lucide-react";
 import { useAppStore, type Settings } from "../state/store";
+import { toast } from "../state/toasts";
 import { useT } from "../state/useT";
+import { isThemeMode } from "../lib/theme";
 import {
   DEFAULT_CHUNK_SECS,
   DEFAULT_MODEL,
@@ -160,6 +162,7 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
       translation: normalizeTranslation(draft.translation),
     });
     appendLog(t("log.settingsSaved"), "ok");
+    toast.ok(t("log.settingsSaved"));
     onClose();
   };
 
@@ -226,6 +229,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                       {l.label}
                     </option>
                   ))}
+                </select>
+              </label>
+              <label>
+                {t("settings.theme")}
+                <select
+                  value={draft.theme}
+                  onChange={(e) =>
+                    isThemeMode(e.target.value) && patch({ theme: e.target.value })
+                  }
+                >
+                  <option value="dark">{t("settings.themeDark")}</option>
+                  <option value="light">{t("settings.themeLight")}</option>
+                  <option value="system">{t("settings.themeSystem")}</option>
                 </select>
               </label>
               <label>

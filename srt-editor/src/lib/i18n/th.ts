@@ -29,6 +29,16 @@ export const th: Dict = {
   "toolbar.unsaved": "ยังไม่บันทึก",
   "toolbar.openProject": "โปรเจกต์ที่เปิดอยู่",
   "toolbar.version": "เวอร์ชันแอป",
+  "toolbar.themeToLight": "สลับเป็นธีมสว่าง",
+  "toolbar.themeToDark": "สลับเป็นธีมมืด",
+
+  "progress.preparing": "กำลังเตรียม…",
+
+  "toast.generateDone": "ถอดเสียงเสร็จแล้ว — {count} บล็อก",
+  "toast.generateFailed": "สร้างซับไตเติลไม่สำเร็จ: {error}",
+  "toast.translateDone": "แปลเสร็จแล้ว",
+  "toast.translateStopped": "หยุดการแปลแล้ว — สิ่งที่แปลไว้ยังอยู่ครบ",
+  "toast.translateFailed": "การแปลไม่สำเร็จ: {error}",
 
   "export.original": "ต้นฉบับ",
   "export.bilingual": "{lang} ใต้ข้อความต้นฉบับ",
@@ -72,6 +82,10 @@ export const th: Dict = {
   "settings.tab.export": "การส่งออก",
 
   "settings.uiLanguage": "ภาษาของหน้าจอ",
+  "settings.theme": "ธีม",
+  "settings.themeLight": "สว่าง",
+  "settings.themeDark": "มืด",
+  "settings.themeSystem": "ตามระบบ",
   "settings.layout": "การจัดวาง",
   "settings.layoutTop": "เครื่องเล่นด้านบน",
   "settings.layoutSide": "เครื่องเล่นในแถบข้าง",

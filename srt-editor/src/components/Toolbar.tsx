@@ -8,14 +8,18 @@ import {
   Languages,
   Loader2,
   Info,
+  Moon,
   PanelTop,
   Settings as SettingsIcon,
   Sparkles,
   Square,
+  Sun,
   XCircle,
 } from "lucide-react";
 import { useAppStore } from "../state/store";
+import { toast } from "../state/toasts";
 import { useT } from "../state/useT";
+import { resolveTheme } from "../lib/theme";
 import { openPath } from "../state/openFiles";
 import { generateBlocks } from "../lib/pipeline/generate";
 import { translateBlocks } from "../lib/translate/run";
@@ -25,6 +29,7 @@ import { SettingsDialog } from "./SettingsDialog";
 import { ProjectsDialog } from "./ProjectsDialog";
 import { ExportMenu } from "./ExportMenu";
 import { AboutDialog } from "./AboutDialog";
+import { OpProgress } from "./OpProgress";
 
 export function Toolbar() {
   const store = useAppStore();
@@ -63,8 +68,11 @@ export function Toolbar() {
         progress: (done, total) => store.setProgress({ done, total }),
       });
       store.setBlocks(blocks);
+      toast.ok(t("toast.generateDone", { count: blocks.length }));
     } catch (e) {
-      store.appendLog(`Generation failed: ${e instanceof Error ? e.message : e}`, "err");
+      const message = e instanceof Error ? e.message : String(e);
+      store.appendLog(`Generation failed: ${message}`, "err");
+      toast.err(t("toast.generateFailed", { error: message }));
     } finally {
       store.setGenerating(false);
       store.setProgress(null);
@@ -96,11 +104,15 @@ export function Toolbar() {
         },
         { retranslateAll },
       );
-    } catch (e) {
-      store.appendLog(
-        `Translation failed: ${e instanceof Error ? e.message : e}`,
-        "err",
+      toast.ok(
+        useAppStore.getState().translateStopRequested
+          ? t("toast.translateStopped")
+          : t("toast.translateDone"),
       );
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      store.appendLog(`Translation failed: ${message}`, "err");
+      toast.err(t("toast.translateFailed", { error: message }));
     } finally {
       store.setTranslating(false);
       store.setTranslateProgress(null);
@@ -199,23 +211,50 @@ export function Toolbar() {
       </span>
       <span className="spacer" />
       <button
+        className="icon-only"
         title={t("toolbar.layoutHint")}
+        aria-label={t("toolbar.layoutHint")}
         onClick={() =>
           store.setLayout(store.settings.layout === "top" ? "side" : "top")
         }
       >
         {store.settings.layout === "top" ? (
-          <>
-            <PanelTop size={14} /> {t("toolbar.layoutTop")}
-          </>
+          <PanelTop size={14} />
         ) : (
-          <>
-            <Columns2 size={14} /> {t("toolbar.layoutSide")}
-          </>
+          <Columns2 size={14} />
         )}
       </button>
-      <button onClick={() => setShowSettings(true)}>
-        <SettingsIcon size={14} /> {t("toolbar.settings")}
+      <button
+        className="icon-only"
+        title={
+          resolveTheme(store.settings.theme) === "dark"
+            ? t("toolbar.themeToLight")
+            : t("toolbar.themeToDark")
+        }
+        aria-label={
+          resolveTheme(store.settings.theme) === "dark"
+            ? t("toolbar.themeToLight")
+            : t("toolbar.themeToDark")
+        }
+        onClick={() =>
+          store.setTheme(
+            resolveTheme(store.settings.theme) === "dark" ? "light" : "dark",
+          )
+        }
+      >
+        {resolveTheme(store.settings.theme) === "dark" ? (
+          <Sun size={14} />
+        ) : (
+          <Moon size={14} />
+        )}
+      </button>
+      <button
+        className="icon-only"
+        onClick={() => setShowSettings(true)}
+        title={t("toolbar.settings")}
+        aria-label={t("toolbar.settings")}
+      >
+        <SettingsIcon size={14} />
       </button>
       <button
         className="icon-only"
@@ -225,6 +264,7 @@ export function Toolbar() {
       >
         <Info size={14} />
       </button>
+      <OpProgress />
       {showSettings && <SettingsDialog onClose={() => setShowSettings(false)} />}
       {showProjects && <ProjectsDialog onClose={() => setShowProjects(false)} />}
       {showAbout && <AboutDialog onClose={() => setShowAbout(false)} />}

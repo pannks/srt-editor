@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import { ChevronDown, Download, FolderDown } from "lucide-react";
 import { useAppStore } from "../state/store";
+import { toast } from "../state/toasts";
 import { useT } from "../state/useT";
 import { saveTextFile } from "../lib/audio/tauri";
 import { blocksToSrt, type SrtOptions } from "../lib/srt/generate";
@@ -62,8 +63,10 @@ export function ExportMenu() {
     try {
       await saveTextFile(path, blocksToSrt(blocks, options));
       appendLog(`Exported SRT: ${path}`, "ok");
+      toast.ok(`Exported SRT: ${path}`);
     } catch (e) {
       appendLog(`Export failed: ${e}`, "err");
+      toast.err(`Export failed: ${e}`);
     }
   };
 
@@ -78,15 +81,19 @@ export function ExportMenu() {
         options: { lang } as SrtOptions,
       })),
     ];
+    let failed = 0;
     for (const job of jobs) {
       const path = `${dir.replace(/[\\/]+$/, "")}/${job.name}`;
       try {
         await saveTextFile(path, blocksToSrt(blocks, job.options));
         appendLog(`Exported SRT: ${path}`, "ok");
       } catch (e) {
+        failed += 1;
         appendLog(`Export failed (${job.name}): ${e}`, "err");
       }
     }
+    if (failed > 0) toast.err(`Export finished with ${failed} failure(s)`);
+    else toast.ok(`Exported ${jobs.length} file(s) to ${dir}`);
   };
 
   return (
