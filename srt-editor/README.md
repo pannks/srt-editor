@@ -1,6 +1,12 @@
 # SRT Studio
 
-Minimal desktop SRT subtitle editor. Open a video or audio file, see the waveform, transcribe with Gemini (chunked audio), edit subtitle blocks, translate them into any number of languages with a local or cloud model, export `.srt`.
+Desktop subtitle studio. Open a video or audio file, see the waveform, transcribe with Gemini (chunked audio), edit subtitle blocks, translate them into any number of languages with a local or cloud model, export `.srt` or `.vtt` — and, in **Caption Studio**, style captions and burn them straight into an MP4.
+
+**Caption Studio** stacks any number of independently styled caption layers over
+the video — e.g. Thai over English over Chinese — each with its own font (system
+or Google Fonts), size, colour, outline, shadow, background box, position and
+animation (fade, pop, word-by-word karaoke). The live preview matches the burn
+pixel for pixel, and ffmpeg's libass renders the final video.
 
 The interface itself is available in English and Thai (Settings › General).
 
@@ -94,9 +100,10 @@ GEMINI_API_KEY=your-key SRT_TEST_AUDIO=/path/to/clip.wav cargo test --manifest-p
    - **It resumes.** Only blocks still missing a translation are sent, so pressing Translate after a **Stop**, a crash or a batch of failures carries on from the gap rather than redoing the file. A language that is already complete is skipped.
    - **Provider** — on this machine: **Ollama**, **LM Studio** or any other local OpenAI-compatible server; in the cloud: **Anthropic**, **OpenAI**, **Google Gemini** or another OpenAI-compatible endpoint (OpenRouter and friends). Picking one fills in its endpoint; only the self-hosted entries let you edit the URL.
    - **Model** — press **Detect** and the provider is asked which models it has; the answers appear in a picker beside the model field. Local servers are detected without a key, cloud ones as soon as the key is in. A model the provider does not advertise can still be typed straight into the field. **Test connection** does a one-word round trip before you commit.
-10. **Export** — the Export menu writes the original, any single language, the original with a translation stacked under it, or every language at once into a folder. File names come from the prefix and `{media}` / `{project}` / `{lang}` / `{date}` pattern in Settings › Export (default `{media}-{lang}` → `clip-th.srt`); any other dot becomes a dash so `.srt` is the only extension. **Open SRT** loads an existing subtitle file to edit, with or without media.
-11. **Close** — clears the media, the blocks and the open project; settings and the process log stay.
-12. **About** — the ⓘ button reports the app and bundle versions, the identifier, Tauri, the platform, the database schema version and the ffmpeg it found. Worth a look before filing a bug: it warns when the interface and the bundle disagree, which means the build is stale.
+10. **Export** — the Export menu writes the original, any single language, the original with a translation stacked under it, or every language at once into a folder, as `.srt` or `.vtt`. File names come from the prefix and `{media}` / `{project}` / `{lang}` / `{date}` pattern in Settings › Export (default `{media}-{lang}` → `clip-th.srt`); any other dot becomes a dash so the extension is the only one. **Open SRT** loads an existing subtitle file to edit, with or without media.
+11. **Caption Studio** — the toolbar's *Create captions* tab. Add one or more caption layers over the video; each layer is fully styled on its own — language (source or any translation), font (system or a Google family fetched for both preview and export), size as a percent of frame height, bold, colour, outline width and colour, drop shadow, an optional background box, anchor position dragged live over the picture, horizontal/vertical alignment, wrap width, and an animation (fade, pop, karaoke). The preview sizes and wraps exactly as the burn will — libass renders text so the font's win metric fills the size, which the export corrects per font so Thai/CJK layers are not shrunk. **Export video** burns every layer into a new MP4 with ffmpeg + libass; progress shows in the toolbar and the Process log.
+12. **Close** — clears the media, the blocks and the open project; settings and the process log stay.
+13. **About** — the ⓘ button reports the app and bundle versions, the identifier, Tauri, the platform, the database schema version and the ffmpeg it found. Worth a look before filing a bug: it warns when the interface and the bundle disagree, which means the build is stale.
 
 ## Code map
 
