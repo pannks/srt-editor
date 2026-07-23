@@ -21,8 +21,11 @@ import {
 } from "../lib/transcribe/types";
 import type { ModelProfile } from "../lib/profiles";
 import {
-  DEFAULT_CAPTION_STYLE,
-  type CaptionStyle,
+  DEFAULT_CAPTION_LAYERS,
+  makeCaptionLayer,
+  nextLayerPosY,
+  normalizeLayer,
+  type CaptionLayer,
 } from "../lib/captions/types";
 import {
   DEFAULT_EXPORT_PATTERN,
@@ -69,8 +72,8 @@ export interface Settings {
   translation: TranslationSettings;
   /** Saved model/prompt bundles; local-only, never exported. */
   profiles: ModelProfile[];
-  /** How burned-in captions look in the Caption Studio. */
-  captionStyle: CaptionStyle;
+  /** Stacked caption lines burned in by the Caption Studio. */
+  captionLayers: CaptionLayer[];
 }
 
 const SETTINGS_KEY = "srt-editor.settings";
@@ -89,13 +92,31 @@ export const DEFAULT_SETTINGS: Settings = {
   exportPattern: DEFAULT_EXPORT_PATTERN,
   translation: DEFAULT_TRANSLATION,
   profiles: [],
-  captionStyle: DEFAULT_CAPTION_STYLE,
+  captionLayers: DEFAULT_CAPTION_LAYERS,
 };
 
 /** First run follows the OS language when the app is available in it. */
 function detectUiLanguage(): UiLanguage {
   const tag = (globalThis.navigator?.language ?? "en").slice(0, 2).toLowerCase();
   return isUiLanguage(tag) ? tag : "en";
+}
+
+/**
+ * Read caption layers out of a stored snapshot: the new array as-is (each
+ * layer filled to the full shape), or the pre-0.4 single `captionStyle` object
+ * wrapped in a one-element list, or the default.
+ */
+function migrateCaptionLayers(
+  current: Partial<Settings> & Record<string, unknown>,
+  base: Settings,
+): CaptionLayer[] {
+  if (Array.isArray(current.captionLayers)) {
+    const layers = current.captionLayers.map(normalizeLayer);
+    return layers.length > 0 ? layers : base.captionLayers;
+  }
+  const legacy = current.captionStyle as Partial<CaptionLayer> | undefined;
+  if (legacy && typeof legacy === "object") return [normalizeLayer(legacy)];
+  return base.captionLayers;
 }
 
 /**
@@ -115,7 +136,7 @@ export function mergeSettings(
     ...current,
     transcription: { ...base.transcription, ...(current.transcription ?? {}) },
     translation: { ...base.translation, ...(current.translation ?? {}) },
-    captionStyle: { ...base.captionStyle, ...(current.captionStyle ?? {}) },
+    captionLayers: migrateCaptionLayers(current, base),
   };
   // A stored snapshot could carry anything; the attribute ends up on <html>.
   if (!isThemeMode(merged.theme)) merged.theme = base.theme;
@@ -163,6 +184,8 @@ interface AppState {
   translating: boolean;
   translateProgress: { done: number; total: number } | null;
   workspaceTab: WorkspaceTab;
+  /** Caption layer being edited / highlighted in the studio, by id. */
+  captionSelectedLayer: string | null;
   exporting: boolean;
   /** Seconds done / total while ffmpeg burns captions. */
   exportProgress: { done: number; total: number } | null;
@@ -185,7 +208,11 @@ interface AppState {
   setWorkspaceTab: (tab: WorkspaceTab) => void;
   setExporting: (v: boolean) => void;
   setExportProgress: (p: { done: number; total: number } | null) => void;
-  setCaptionStyle: (patch: Partial<CaptionStyle>) => void;
+  updateCaptionLayer: (id: string, patch: Partial<CaptionLayer>) => void;
+  addCaptionLayer: (language: string) => void;
+  removeCaptionLayer: (id: string) => void;
+  resetCaptionLayer: (id: string) => void;
+  selectCaptionLayer: (id: string) => void;
   requestStopTranslation: () => void;
   setCurrentTime: (t: number) => void;
   setBlocks: (blocks: SubtitleBlock[]) => void;
@@ -228,6 +255,7 @@ export const useAppStore = create<AppState>((set) => ({
   translating: false,
   translateProgress: null,
   workspaceTab: "blocks",
+  captionSelectedLayer: null,
   exporting: false,
   exportProgress: null,
   translateStopRequested: false,
@@ -260,11 +288,53 @@ export const useAppStore = create<AppState>((set) => ({
   setWorkspaceTab: (workspaceTab) => set({ workspaceTab }),
   setExporting: (exporting) => set({ exporting }),
   setExportProgress: (exportProgress) => set({ exportProgress }),
-  setCaptionStyle: (patch) =>
+  updateCaptionLayer: (id, patch) =>
     set((s) => {
       const settings = {
         ...s.settings,
-        captionStyle: { ...s.settings.captionStyle, ...patch },
+        captionLayers: s.settings.captionLayers.map((l) =>
+          l.id === id ? { ...l, ...patch } : l,
+        ),
+      };
+      persistSettings(settings);
+      return { settings };
+    }),
+  addCaptionLayer: (language) =>
+    set((s) => {
+      const layer = makeCaptionLayer({
+        language,
+        posY: nextLayerPosY(s.settings.captionLayers),
+      });
+      const settings = {
+        ...s.settings,
+        captionLayers: [...s.settings.captionLayers, layer],
+      };
+      persistSettings(settings);
+      return { settings, captionSelectedLayer: layer.id };
+    }),
+  removeCaptionLayer: (id) =>
+    set((s) => {
+      // Never leave the studio with nothing to style.
+      const rest = s.settings.captionLayers.filter((l) => l.id !== id);
+      const captionLayers = rest.length > 0 ? rest : [makeCaptionLayer()];
+      const settings = { ...s.settings, captionLayers };
+      persistSettings(settings);
+      return {
+        settings,
+        captionSelectedLayer:
+          s.captionSelectedLayer === id ? captionLayers[0].id : s.captionSelectedLayer,
+      };
+    }),
+  selectCaptionLayer: (captionSelectedLayer) => set({ captionSelectedLayer }),
+  resetCaptionLayer: (id) =>
+    set((s) => {
+      const settings = {
+        ...s.settings,
+        captionLayers: s.settings.captionLayers.map((l) =>
+          l.id === id
+            ? makeCaptionLayer({ id: l.id, language: l.language, posY: l.posY })
+            : l,
+        ),
       };
       persistSettings(settings);
       return { settings };

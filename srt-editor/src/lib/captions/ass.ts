@@ -1,5 +1,5 @@
 import type { SubtitleBlock } from "../blocks/types";
-import { captionText, type CaptionStyle } from "./types";
+import { captionText, type CaptionLayer } from "./types";
 
 /**
  * Build an ASS (Advanced SubStation) script for ffmpeg's libass filter.
@@ -61,12 +61,12 @@ export function karaokeText(text: string, durationSec: number): string {
     .join(" ");
 }
 
-function animationTags(style: CaptionStyle): string {
-  switch (style.animation) {
+function animationTags(layer: CaptionLayer): string {
+  switch (layer.animation) {
     case "fade":
       return "\\fad(150,150)";
     case "pop":
-      return "\\fscx70\\fscy70\\t(0,150,\\fscx100\\fscy100)";
+      return "\\fscx60\\fscy60\\t(0,180,\\fscx100\\fscy100)";
     default:
       return "";
   }
@@ -77,29 +77,24 @@ export interface VideoDims {
   height: number;
 }
 
-export function buildAss(
-  blocks: SubtitleBlock[],
-  style: CaptionStyle,
-  dims: VideoDims,
-): string {
-  const fontSize = Math.max(8, Math.round((style.fontSizePct / 100) * dims.height));
-  const x = Math.round(style.posX * dims.width);
-  const y = Math.round(style.posY * dims.height);
+/** The `Style:` line for one layer, named `Caption{index}`. */
+function styleLine(layer: CaptionLayer, index: number, dims: VideoDims): string {
+  const fontSize = Math.max(8, Math.round((layer.fontSizePct / 100) * dims.height));
   // BorderStyle 3 draws BackColour as an opaque box behind the line.
-  const borderStyle = style.bgEnabled ? 3 : 1;
-  const back = style.bgEnabled
-    ? assColor(style.bgColor, (1 - style.bgOpacity) * 255)
+  const borderStyle = layer.bgEnabled ? 3 : 1;
+  const back = layer.bgEnabled
+    ? assColor(layer.bgColor, (1 - layer.bgOpacity) * 255)
     : assColor("#000000", 128);
-  // Karaoke sweeps SecondaryColour → PrimaryColour; a dim grey reads well.
-  const styleLine = [
-    "Caption",
-    style.fontFamily || "Arial",
+  return [
+    `Caption${index}`,
+    layer.fontFamily || "Arial",
     fontSize,
-    assColor(style.color),
+    assColor(layer.color),
+    // Karaoke sweeps SecondaryColour → PrimaryColour; a dim grey reads well.
     assColor("#888888"),
-    assColor(style.outlineColor),
+    assColor(layer.outlineColor),
     back,
-    style.bold ? -1 : 0,
+    layer.bold ? -1 : 0,
     0,
     0,
     0,
@@ -108,27 +103,47 @@ export function buildAss(
     0,
     0,
     borderStyle,
-    style.outlineWidth,
-    style.shadow,
+    layer.outlineWidth,
+    layer.shadow,
     5, // \an5: the position tag anchors the caption's centre
     0,
     0,
     0,
     1,
   ].join(",");
+}
 
-  const events = blocks
-    .map((block) => {
-      const raw = captionText(block, style);
-      if (raw === "") return null;
-      const text =
-        style.animation === "karaoke"
-          ? karaokeText(escapeAssText(raw), block.end - block.start)
-          : escapeAssText(raw);
-      const tags = `\\an5\\pos(${x},${y})${animationTags(style)}`;
-      return `Dialogue: 0,${assTime(block.start)},${assTime(block.end)},Caption,,0,0,0,,{${tags}}${text}`;
-    })
-    .filter((line): line is string => line !== null)
+/** The `Dialogue:` lines one layer contributes across every block. */
+function layerEvents(
+  layer: CaptionLayer,
+  index: number,
+  blocks: SubtitleBlock[],
+  dims: VideoDims,
+): string[] {
+  const x = Math.round(layer.posX * dims.width);
+  const y = Math.round(layer.posY * dims.height);
+  const tags = `\\an5\\pos(${x},${y})${animationTags(layer)}`;
+  return blocks.flatMap((block) => {
+    const raw = captionText(block, layer);
+    if (raw === "") return [];
+    const text =
+      layer.animation === "karaoke"
+        ? karaokeText(escapeAssText(raw), block.end - block.start)
+        : escapeAssText(raw);
+    return [
+      `Dialogue: 0,${assTime(block.start)},${assTime(block.end)},Caption${index},,0,0,0,,{${tags}}${text}`,
+    ];
+  });
+}
+
+export function buildAss(
+  blocks: SubtitleBlock[],
+  layers: CaptionLayer[],
+  dims: VideoDims,
+): string {
+  const styles = layers.map((l, i) => `Style: ${styleLine(l, i, dims)}`).join("\n");
+  const events = layers
+    .flatMap((l, i) => layerEvents(l, i, blocks, dims))
     .join("\n");
 
   return `[Script Info]
@@ -140,7 +155,7 @@ ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: ${styleLine}
+${styles}
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
