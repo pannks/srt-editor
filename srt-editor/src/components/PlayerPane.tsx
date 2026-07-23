@@ -20,6 +20,7 @@ import {
 import { Repeat } from "lucide-react";
 import { waveformPeaks, type Waveform } from "../lib/audio/tauri";
 import { THEME_EVENT, waveColors } from "../lib/theme";
+import { CaptionPreview } from "./CaptionPreview";
 
 /** Waveform zoom in pixels per second; `FIT` lets the whole clip fill the pane. */
 const FIT = 0;
@@ -93,6 +94,8 @@ export function PlayerPane() {
     settings,
   } = useAppStore();
   const t = useT();
+  const workspaceTab = useAppStore((s) => s.workspaceTab);
+  const frameRef = useRef<HTMLDivElement | null>(null);
   const activeBlock = findActiveBlock(blocks, currentTime);
   // One line per ticked language, in the order they were ticked. Languages the
   // active block has no translation for are skipped rather than left blank.
@@ -388,22 +391,26 @@ export function PlayerPane() {
           className="media audio-only"
         />
       ) : (
-        <div className="media-frame">
+        <div className="media-frame" ref={frameRef}>
           <video
             ref={mediaRef as React.RefObject<HTMLVideoElement>}
             src={mediaUrl}
             controls
             className="media"
           />
-          {activeBlock && (
-            <div className="subtitle-overlay">
-              <span>{activeBlock.text}</span>
-              {overlayLines.map((line) => (
-                <span key={line.lang} className="translated">
-                  {line.text}
-                </span>
-              ))}
-            </div>
+          {workspaceTab === "captions" ? (
+            <CaptionPreview container={frameRef} />
+          ) : (
+            activeBlock && (
+              <div className="subtitle-overlay">
+                <span>{activeBlock.text}</span>
+                {overlayLines.map((line) => (
+                  <span key={line.lang} className="translated">
+                    {line.text}
+                  </span>
+                ))}
+              </div>
+            )
           )}
         </div>
       )}

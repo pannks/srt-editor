@@ -80,6 +80,45 @@ export const en = {
 
   "process.title": "Process",
 
+  "workspace.blocks": "Subtitles",
+  "workspace.captions": "Caption Studio",
+
+  "captions.empty":
+    "Generate or open subtitles first — the caption design applies to them.",
+  "captions.dragHint":
+    "Style the burned-in caption below, and drag the caption on the video to place it.",
+  "captions.language": "Caption line",
+  "captions.sourceLine": "Original text",
+  "captions.animation": "Animation",
+  "captions.anim.none": "None",
+  "captions.anim.fade": "Fade",
+  "captions.anim.pop": "Pop",
+  "captions.anim.karaoke": "Karaoke (word by word)",
+  "captions.font": "Font",
+  "captions.fontHint":
+    "Family name as installed on this machine — the export resolves it the same way.",
+  "captions.size": "Size — {pct}% of video height",
+  "captions.bold": "Bold",
+  "captions.textColor": "Text color",
+  "captions.outlineColor": "Outline color",
+  "captions.outline": "Outline — {width}",
+  "captions.shadow": "Shadow — {depth}",
+  "captions.background": "Background box",
+  "captions.bgColor": "Box color",
+  "captions.bgOpacity": "Box opacity — {pct}%",
+  "captions.reset": "Reset style",
+  "captions.export": "Export MP4",
+  "captions.exporting": "Exporting…",
+  "captions.exportHint":
+    "Burn the captions into a new MP4 (needs ffmpeg built with libass).",
+  "captions.exportNeedsVideo":
+    "Open a video file — audio has no picture to burn captions into.",
+  "captions.noDimensions":
+    "Video dimensions unknown — wait for the video to load, then try again.",
+
+  "toast.videoExported": "Video exported: {path}",
+  "toast.videoExportFailed": "Video export failed: {error}",
+
   "settings.title": "Settings",
   "settings.close": "Close",
   "settings.cancel": "Cancel",

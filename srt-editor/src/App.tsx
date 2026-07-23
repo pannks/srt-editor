@@ -14,6 +14,7 @@ import { Toolbar } from "./components/Toolbar";
 import { PlayerPane } from "./components/PlayerPane";
 import { ProcessPanel } from "./components/ProcessPanel";
 import { BlockList } from "./components/BlockList";
+import { CaptionStudio } from "./components/CaptionStudio";
 import { Splitter } from "./components/Splitter";
 import { Toasts } from "./components/Toasts";
 import "./App.css";
@@ -30,6 +31,8 @@ function App() {
   const processWidth = useAppStore((s) => s.settings.processWidth);
   const mediaHeight = useAppStore((s) => s.settings.mediaHeight);
   const mediaUrl = useAppStore((s) => s.mediaUrl);
+  const workspaceTab = useAppStore((s) => s.workspaceTab);
+  const setWorkspaceTab = useAppStore((s) => s.setWorkspaceTab);
   const [dragging, setDragging] = useState(false);
   const t = useT();
 
@@ -149,7 +152,27 @@ function App() {
         onCommit={(px) => setPaneWidth("sidebarWidth", px)}
       />
       <div className="body">
-        <BlockList />
+        <div className="workspace">
+          <div className="workspace-tabs tabs" role="tablist">
+            <button
+              role="tab"
+              aria-selected={workspaceTab === "blocks"}
+              className={workspaceTab === "blocks" ? "tab current" : "tab"}
+              onClick={() => setWorkspaceTab("blocks")}
+            >
+              {t("workspace.blocks")}
+            </button>
+            <button
+              role="tab"
+              aria-selected={workspaceTab === "captions"}
+              className={workspaceTab === "captions" ? "tab current" : "tab"}
+              onClick={() => setWorkspaceTab("captions")}
+            >
+              {t("workspace.captions")}
+            </button>
+          </div>
+          {workspaceTab === "blocks" ? <BlockList /> : <CaptionStudio />}
+        </div>
         <Splitter
           className="splitter-process"
           cssVar="--process-w"

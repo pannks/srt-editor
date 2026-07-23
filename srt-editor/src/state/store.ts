@@ -21,6 +21,10 @@ import {
 } from "../lib/transcribe/types";
 import type { ModelProfile } from "../lib/profiles";
 import {
+  DEFAULT_CAPTION_STYLE,
+  type CaptionStyle,
+} from "../lib/captions/types";
+import {
   DEFAULT_EXPORT_PATTERN,
   DEFAULT_EXPORT_PREFIX,
 } from "../lib/srt/naming";
@@ -65,6 +69,8 @@ export interface Settings {
   translation: TranslationSettings;
   /** Saved model/prompt bundles; local-only, never exported. */
   profiles: ModelProfile[];
+  /** How burned-in captions look in the Caption Studio. */
+  captionStyle: CaptionStyle;
 }
 
 const SETTINGS_KEY = "srt-editor.settings";
@@ -83,6 +89,7 @@ export const DEFAULT_SETTINGS: Settings = {
   exportPattern: DEFAULT_EXPORT_PATTERN,
   translation: DEFAULT_TRANSLATION,
   profiles: [],
+  captionStyle: DEFAULT_CAPTION_STYLE,
 };
 
 /** First run follows the OS language when the app is available in it. */
@@ -108,6 +115,7 @@ export function mergeSettings(
     ...current,
     transcription: { ...base.transcription, ...(current.transcription ?? {}) },
     translation: { ...base.translation, ...(current.translation ?? {}) },
+    captionStyle: { ...base.captionStyle, ...(current.captionStyle ?? {}) },
   };
   // A stored snapshot could carry anything; the attribute ends up on <html>.
   if (!isThemeMode(merged.theme)) merged.theme = base.theme;
@@ -141,6 +149,9 @@ function persistSettings(settings: Settings) {
 
 export type MediaKind = "video" | "audio";
 
+/** Which view fills the block-list zone. */
+export type WorkspaceTab = "blocks" | "captions";
+
 interface AppState {
   mediaPath: string | null;
   mediaUrl: string | null;
@@ -151,6 +162,10 @@ interface AppState {
   progress: { done: number; total: number } | null;
   translating: boolean;
   translateProgress: { done: number; total: number } | null;
+  workspaceTab: WorkspaceTab;
+  exporting: boolean;
+  /** Seconds done / total while ffmpeg burns captions. */
+  exportProgress: { done: number; total: number } | null;
   /** Polled by the run between requests; see `requestStopTranslation`. */
   translateStopRequested: boolean;
   currentTime: number;
@@ -167,6 +182,10 @@ interface AppState {
   setProgress: (p: { done: number; total: number } | null) => void;
   setTranslating: (v: boolean) => void;
   setTranslateProgress: (p: { done: number; total: number } | null) => void;
+  setWorkspaceTab: (tab: WorkspaceTab) => void;
+  setExporting: (v: boolean) => void;
+  setExportProgress: (p: { done: number; total: number } | null) => void;
+  setCaptionStyle: (patch: Partial<CaptionStyle>) => void;
   requestStopTranslation: () => void;
   setCurrentTime: (t: number) => void;
   setBlocks: (blocks: SubtitleBlock[]) => void;
@@ -208,6 +227,9 @@ export const useAppStore = create<AppState>((set) => ({
   progress: null,
   translating: false,
   translateProgress: null,
+  workspaceTab: "blocks",
+  exporting: false,
+  exportProgress: null,
   translateStopRequested: false,
   currentTime: 0,
   settings: loadSettings(),
@@ -235,6 +257,18 @@ export const useAppStore = create<AppState>((set) => ({
   setTranslating: (translating) =>
     set(translating ? { translating, translateStopRequested: false } : { translating }),
   setTranslateProgress: (translateProgress) => set({ translateProgress }),
+  setWorkspaceTab: (workspaceTab) => set({ workspaceTab }),
+  setExporting: (exporting) => set({ exporting }),
+  setExportProgress: (exportProgress) => set({ exportProgress }),
+  setCaptionStyle: (patch) =>
+    set((s) => {
+      const settings = {
+        ...s.settings,
+        captionStyle: { ...s.settings.captionStyle, ...patch },
+      };
+      persistSettings(settings);
+      return { settings };
+    }),
   requestStopTranslation: () => set({ translateStopRequested: true }),
   setCurrentTime: (currentTime) => set({ currentTime }),
   setBlocks: (blocks) => set({ blocks }),
@@ -291,6 +325,8 @@ export const useAppStore = create<AppState>((set) => ({
       currentTime: 0,
       progress: null,
       translateProgress: null,
+      exportProgress: null,
+      workspaceTab: "blocks",
       projectId: null,
       projectName: "Untitled project",
     }),

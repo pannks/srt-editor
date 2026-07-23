@@ -12,7 +12,7 @@ pub struct ChunkInfo {
 }
 
 /// GUI apps on macOS don't inherit the shell PATH, so fall back to common install locations.
-fn resolve_bin(name: &str) -> String {
+pub fn resolve_bin(name: &str) -> String {
     let candidates = [
         format!("/opt/homebrew/bin/{name}"),
         format!("/usr/local/bin/{name}"),
@@ -30,7 +30,7 @@ fn emit_log(app: &AppHandle, message: &str) {
     let _ = app.emit("process-log", message.to_string());
 }
 
-fn ffprobe_duration(path: &str) -> Result<f64, String> {
+pub fn ffprobe_duration(path: &str) -> Result<f64, String> {
     let out = Command::new(resolve_bin("ffprobe"))
         .args([
             "-v",

@@ -9,19 +9,23 @@ import { useT } from "../state/useT";
 export function OpProgress() {
   const generating = useAppStore((s) => s.generating);
   const translating = useAppStore((s) => s.translating);
+  const exporting = useAppStore((s) => s.exporting);
   const progress = useAppStore((s) => s.progress);
   const translateProgress = useAppStore((s) => s.translateProgress);
+  const exportProgress = useAppStore((s) => s.exportProgress);
   const t = useT();
 
-  if (!generating && !translating) return null;
-  const p = generating ? progress : translateProgress;
+  if (!generating && !translating && !exporting) return null;
+  const p = generating ? progress : translating ? translateProgress : exportProgress;
   const pct = p && p.total > 0 ? Math.min(100, (p.done / p.total) * 100) : null;
-  const label = p
-    ? t(generating ? "toolbar.transcribing" : "toolbar.translating", {
-        done: p.done,
-        total: p.total,
-      })
-    : t("progress.preparing");
+  const label = exporting
+    ? t("captions.exporting")
+    : p
+      ? t(generating ? "toolbar.transcribing" : "toolbar.translating", {
+          done: p.done,
+          total: p.total,
+        })
+      : t("progress.preparing");
 
   return (
     <div className="op-progress" role="progressbar" aria-label={label}>

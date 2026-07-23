@@ -1,5 +1,6 @@
 pub mod audio;
 mod db;
+pub mod export;
 mod files;
 pub mod gemini;
 mod info;
@@ -21,6 +22,7 @@ pub fn run() {
             audio::check_ffmpeg,
             audio::extract_audio_chunks,
             audio::waveform_peaks,
+            export::export_captioned_video,
             gemini::transcribe_chunk,
             translate::translate_chat,
             translate::list_models,
