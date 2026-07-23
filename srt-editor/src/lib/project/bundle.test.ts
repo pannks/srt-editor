@@ -115,11 +115,14 @@ describe("bundleFileName", () => {
 describe("a shared bundle carries no credentials", () => {
   const settings = {
     apiKey: "AIza-secret",
-    model: "gemini",
+    transcription: { apiKey: "AIza-secret2", model: "gemini-3.1-pro-preview" },
     translation: { apiKey: "sk-secret", model: "qwen3:8b", baseUrl: "http://x" },
+    profiles: [
+      { id: "1", name: "p", transcription: { apiKey: "sk-secret3" } },
+    ],
   };
 
-  it("strips both keys", () => {
+  it("strips every key, including the profiles", () => {
     const safe = stripSecrets(settings);
     expect(hasSecrets(safe)).toBe(false);
     expect(JSON.stringify(safe)).not.toContain("secret");
@@ -128,12 +131,14 @@ describe("a shared bundle carries no credentials", () => {
   it("removes the fields rather than blanking them, so a reader keeps its own", () => {
     const safe = stripSecrets(settings) as Record<string, unknown>;
     expect("apiKey" in safe).toBe(false);
+    expect("apiKey" in (safe.transcription as object)).toBe(false);
     expect("apiKey" in (safe.translation as object)).toBe(false);
+    expect("profiles" in safe).toBe(false);
   });
 
   it("keeps everything that is not a credential", () => {
     const safe = stripSecrets(settings);
-    expect(safe.model).toBe("gemini");
+    expect(safe.transcription).toEqual({ model: "gemini-3.1-pro-preview" });
     expect(safe.translation).toEqual({
       model: "qwen3:8b",
       baseUrl: "http://x",

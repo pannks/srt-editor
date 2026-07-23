@@ -1,4 +1,4 @@
-import type { RawSegment } from "../gemini/client";
+import type { RawSegment } from "../transcribe/client";
 import { newBlockId, type SubtitleBlock } from "../blocks/types";
 
 /** Shift chunk-relative segment times by the chunk's absolute start offset. */

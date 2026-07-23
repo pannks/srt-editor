@@ -6,6 +6,7 @@ export type ProviderId =
   | "lmstudio"
   | "local"
   | "openai"
+  | "openrouter"
   | "anthropic"
   | "gemini"
   | "cloud";
@@ -88,6 +89,16 @@ export const PROVIDERS: ProviderSpec[] = [
     editableBaseUrl: false,
     needsKey: true,
     defaultModel: GEMINI_DEFAULT_MODEL,
+  },
+  {
+    id: "openrouter",
+    label: "OpenRouter",
+    api: "openai",
+    local: false,
+    baseUrl: "https://openrouter.ai/api/v1",
+    editableBaseUrl: false,
+    needsKey: true,
+    defaultModel: "",
   },
   {
     id: "cloud",

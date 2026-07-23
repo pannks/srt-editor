@@ -27,7 +27,38 @@ describe("migrateLegacySettings", () => {
   });
 
   it("passes through everything it does not know about", () => {
-    const out = migrateLegacySettings({ model: "x", chunkSecs: 300 });
-    expect(out).toEqual({ model: "x", chunkSecs: 300 });
+    const out = migrateLegacySettings({ layout: "side", theme: "dark" });
+    expect(out).toEqual({ layout: "side", theme: "dark" });
+  });
+
+  it("moves the flat Gemini fields into the transcription group", () => {
+    const out = migrateLegacySettings({
+      apiKey: "AIza-test",
+      model: "gemini-3.1-pro-preview",
+      prompt: "custom",
+      chunkSecs: 120,
+    }) as { transcription?: Record<string, unknown> };
+    expect(out.transcription).toMatchObject({
+      provider: "gemini",
+      apiKey: "AIza-test",
+      model: "gemini-3.1-pro-preview",
+      prompt: "custom",
+      chunkSecs: 120,
+    });
+    expect("apiKey" in out).toBe(false);
+    expect("model" in out).toBe(false);
+  });
+
+  it("keeps an existing transcription group over the flat fields", () => {
+    const out = migrateLegacySettings({
+      apiKey: "old",
+      transcription: { provider: "openai", apiKey: "new" },
+    }) as { transcription?: Record<string, unknown> };
+    expect(out.transcription).toEqual({ provider: "openai", apiKey: "new" });
+  });
+
+  it("does not invent a transcription group from nothing", () => {
+    const out = migrateLegacySettings({ layout: "top" });
+    expect("transcription" in out).toBe(false);
   });
 });

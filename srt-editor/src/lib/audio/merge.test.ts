@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { offsetSegments, segmentsToBlocks } from "./merge";
-import { parseSegmentsJson } from "../gemini/client";
+import { parseSegmentsJson } from "../transcribe/client";
 
 describe("offsetSegments", () => {
   it("shifts times by the chunk start", () => {

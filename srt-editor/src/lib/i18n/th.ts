@@ -77,8 +77,9 @@ export const th: Dict = {
   "settings.cancel": "ยกเลิก",
   "settings.save": "บันทึก",
   "settings.tab.general": "ทั่วไป",
-  "settings.tab.model": "โมเดลและพรอมต์",
+  "settings.tab.transcription": "การถอดเสียง",
   "settings.tab.translation": "การแปล",
+  "settings.tab.profiles": "โปรไฟล์",
   "settings.tab.export": "การส่งออก",
 
   "settings.uiLanguage": "ภาษาของหน้าจอ",
@@ -97,7 +98,22 @@ export const th: Dict = {
   "settings.selectAll": "ทั้งหมด",
   "settings.selectNone": "ไม่เลือก",
 
-  "settings.apiKey": "คีย์ API ของ Gemini",
+  "settings.apiKey": "คีย์ API (เว้นว่างได้ถ้าใช้เซิร์ฟเวอร์ในเครื่อง)",
+  "settings.recommendedModel": "แนะนำ: {model} (Google Gemini)",
+  "settings.audioModelHint":
+    "โมเดลที่เลือกต้องรองรับไฟล์เสียง — ถ้าใช้ OpenRouter หรือ OpenAI ให้เลือกโมเดลที่รับเสียงได้ โมเดลที่รับเฉพาะข้อความจะปฏิเสธคำขอ",
+
+  "profiles.name": "ชื่อโปรไฟล์",
+  "profiles.saveCurrent": "บันทึกการตั้งค่าปัจจุบัน",
+  "profiles.hint":
+    "โปรไฟล์เก็บผู้ให้บริการ โมเดล และพรอมต์ของทั้งสองขั้นตอน (รวมคีย์) เพื่อสลับชุดการตั้งค่าได้ในคลิกเดียว โปรไฟล์ไม่ถูกส่งออกจากเครื่องนี้",
+  "profiles.empty":
+    "ยังไม่มีโปรไฟล์ ตั้งค่าการถอดเสียงและการแปลก่อน แล้วบันทึกไว้ที่นี่พร้อมตั้งชื่อ",
+  "profiles.apply": "ใช้โปรไฟล์",
+  "profiles.applyHint": "โหลดโปรไฟล์นี้เข้าการตั้งค่า — กดบันทึกเพื่อเก็บไว้",
+  "profiles.delete": "ลบโปรไฟล์",
+  "profiles.saved": "บันทึกโปรไฟล์ “{name}” แล้ว — กดบันทึกการตั้งค่าเพื่อเก็บไว้",
+  "profiles.applied": "โหลดโปรไฟล์ “{name}” แล้ว — ตรวจสอบแล้วกดบันทึก",
   "settings.model": "โมเดลถอดเสียง",
   "settings.chunk": "ความยาวต่อท่อน (วินาที, 30–1800)",
   "settings.prompt": "พรอมต์สำหรับถอดเสียง",
@@ -110,7 +126,6 @@ export const th: Dict = {
   "settings.providerCloudGroup": "คลาวด์",
   "settings.baseUrl": "Base URL",
   "settings.baseUrlHint": "ที่อยู่ราก ลงท้ายด้วยเวอร์ชันของ API",
-  "settings.translationKey": "คีย์ API (เว้นว่างได้ถ้าใช้เซิร์ฟเวอร์ในเครื่อง)",
   "settings.translationModel": "โมเดลสำหรับแปล",
   "settings.detectModels": "ค้นหาโมเดล",
   "settings.detecting": "กำลังค้นหา…",

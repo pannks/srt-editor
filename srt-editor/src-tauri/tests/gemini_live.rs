@@ -13,12 +13,15 @@ async fn transcribes_a_real_chunk() {
     let model = std::env::var("SRT_TEST_MODEL")
         .unwrap_or_else(|_| "gemini-3.1-pro-preview".to_string());
 
-    let text = gemini::transcribe(
-        &audio,
-        &api_key,
-        &model,
+    let text = gemini::transcribe_chunk(
+        audio,
+        "gemini".to_string(),
+        String::new(),
+        api_key,
+        model,
         "Transcribe this audio into subtitle segments. Return ONLY a JSON array of \
-         {start, end, text} with seconds relative to this clip.",
+         {start, end, text} with seconds relative to this clip."
+            .to_string(),
     )
     .await
     .expect("transcription failed");

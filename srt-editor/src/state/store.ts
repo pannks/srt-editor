@@ -16,10 +16,10 @@ import {
   type TranslationSettings,
 } from "../lib/translate/types";
 import {
-  DEFAULT_CHUNK_SECS,
-  DEFAULT_MODEL,
-  DEFAULT_PROMPT,
-} from "../lib/gemini/prompt";
+  DEFAULT_TRANSCRIPTION,
+  type TranscriptionSettings,
+} from "../lib/transcribe/types";
+import type { ModelProfile } from "../lib/profiles";
 import {
   DEFAULT_EXPORT_PATTERN,
   DEFAULT_EXPORT_PREFIX,
@@ -42,10 +42,7 @@ export interface LogEntry {
 export type Layout = "top" | "side";
 
 export interface Settings {
-  apiKey: string;
-  model: string;
-  chunkSecs: number;
-  prompt: string;
+  transcription: TranscriptionSettings;
   layout: Layout;
   /** Color theme; `system` follows the OS preference live. */
   theme: ThemeMode;
@@ -64,15 +61,14 @@ export interface Settings {
   /** Token pattern for exported file names — see `lib/srt/naming.ts`. */
   exportPattern: string;
   translation: TranslationSettings;
+  /** Saved model/prompt bundles; local-only, never exported. */
+  profiles: ModelProfile[];
 }
 
 const SETTINGS_KEY = "srt-editor.settings";
 
 export const DEFAULT_SETTINGS: Settings = {
-  apiKey: "",
-  model: DEFAULT_MODEL,
-  chunkSecs: DEFAULT_CHUNK_SECS,
-  prompt: DEFAULT_PROMPT,
+  transcription: DEFAULT_TRANSCRIPTION,
   layout: "top",
   theme: "dark",
   sidebarWidth: 360,
@@ -83,6 +79,7 @@ export const DEFAULT_SETTINGS: Settings = {
   exportPrefix: DEFAULT_EXPORT_PREFIX,
   exportPattern: DEFAULT_EXPORT_PATTERN,
   translation: DEFAULT_TRANSLATION,
+  profiles: [],
 };
 
 /** First run follows the OS language when the app is available in it. */
@@ -106,6 +103,7 @@ export function mergeSettings(
   const merged = {
     ...base,
     ...current,
+    transcription: { ...base.transcription, ...(current.transcription ?? {}) },
     translation: { ...base.translation, ...(current.translation ?? {}) },
   };
   // A stored snapshot could carry anything; the attribute ends up on <html>.

@@ -81,8 +81,9 @@ export const en = {
   "settings.cancel": "Cancel",
   "settings.save": "Save",
   "settings.tab.general": "General",
-  "settings.tab.model": "Model & prompt",
+  "settings.tab.transcription": "Transcription",
   "settings.tab.translation": "Translation",
+  "settings.tab.profiles": "Profiles",
   "settings.tab.export": "Export",
 
   "settings.uiLanguage": "Interface language",
@@ -102,20 +103,34 @@ export const en = {
   "settings.selectAll": "All",
   "settings.selectNone": "None",
 
-  "settings.apiKey": "Gemini API key",
+  "settings.apiKey": "API key (blank for a local server)",
   "settings.model": "Transcription model",
   "settings.chunk": "Chunk length (seconds, 30–1800)",
   "settings.prompt": "Transcription prompt",
   "settings.resetPrompt": "Reset prompt",
   "settings.showKey": "Show the key",
   "settings.hideKey": "Hide the key",
+  "settings.recommendedModel": "Recommended: {model} (Google Gemini).",
+  "settings.audioModelHint":
+    "The chosen model must accept audio input — on OpenRouter or OpenAI, pick an audio-capable model; text-only models will refuse the request.",
+
+  "profiles.name": "Profile name",
+  "profiles.saveCurrent": "Save current setup",
+  "profiles.hint":
+    "A profile stores the provider, model and prompt of both stages (keys included) so you can switch setups in one click. Profiles never leave this machine.",
+  "profiles.empty":
+    "No profiles yet. Configure Transcription and Translation, then save them here under a name.",
+  "profiles.apply": "Apply",
+  "profiles.applyHint": "Load this profile into the settings — Save to keep it",
+  "profiles.delete": "Delete profile",
+  "profiles.saved": "Profile “{name}” saved — Save settings to keep it",
+  "profiles.applied": "Profile “{name}” loaded — review and Save",
 
   "settings.translationProvider": "Provider",
   "settings.providerLocalGroup": "On this machine",
   "settings.providerCloudGroup": "Cloud",
   "settings.baseUrl": "Base URL",
   "settings.baseUrlHint": "Endpoint root, ending in the API version path.",
-  "settings.translationKey": "API key (blank for a local server)",
   "settings.translationModel": "Translation model",
   "settings.detectModels": "Detect",
   "settings.detecting": "Detecting…",

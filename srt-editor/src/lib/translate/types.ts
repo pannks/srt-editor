@@ -57,12 +57,11 @@ export const MAX_CONTEXT_BLOCKS = 10;
  * Switch preset: the URL follows the new provider, and the model is replaced
  * only when it cannot belong to the new one — keeping a hand-typed model that
  * still applies, and never leaving an Ollama tag selected for Anthropic.
+ * Generic so the transcription settings can use it too.
  */
-export function applyProvider(
-  settings: TranslationSettings,
-  id: ProviderId,
-  knownModels: string[] = [],
-): TranslationSettings {
+export function applyProvider<
+  T extends { provider: ProviderId; baseUrl: string; model: string },
+>(settings: T, id: ProviderId, knownModels: string[] = []): T {
   const spec = providerSpec(id);
   const keepModel =
     knownModels.includes(settings.model) &&
