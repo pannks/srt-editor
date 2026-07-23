@@ -28,6 +28,8 @@ function App() {
   const theme = useAppStore((s) => s.settings.theme);
   const sidebarWidth = useAppStore((s) => s.settings.sidebarWidth);
   const processWidth = useAppStore((s) => s.settings.processWidth);
+  const mediaHeight = useAppStore((s) => s.settings.mediaHeight);
+  const mediaUrl = useAppStore((s) => s.mediaUrl);
   const [dragging, setDragging] = useState(false);
   const t = useT();
 
@@ -115,11 +117,26 @@ function App() {
         {
           "--sidebar-w": `${sidebarWidth}px`,
           "--process-w": `${processWidth}px`,
+          "--media-h": `${mediaHeight}px`,
         } as React.CSSProperties
       }
     >
       <Toolbar />
       <PlayerPane />
+      {layout === "top" && mediaUrl && (
+        <Splitter
+          className="splitter-player"
+          cssVar="--media-h"
+          axis="y"
+          width={mediaHeight}
+          min={120}
+          max={640}
+          defaultWidth={DEFAULT_SETTINGS.mediaHeight}
+          direction={1}
+          title={t("player.mediaResize")}
+          onCommit={(px) => setPaneWidth("mediaHeight", px)}
+        />
+      )}
       <Splitter
         className="splitter-sidebar"
         cssVar="--sidebar-w"

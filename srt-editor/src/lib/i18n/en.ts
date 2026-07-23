@@ -60,6 +60,10 @@ export const en = {
   "player.fit": "Fit the whole clip",
   "player.wholeClip": "whole clip",
   "player.zoomHint": "{zoom} · drag blocks to retime · ⌘-scroll to zoom",
+  "player.speed": "Playback speed",
+  "player.loopHint": "Loop the current block",
+  "player.mediaResize": "Video height",
+  "player.keysHint": "Space plays/pauses · ←/→ seek 1s (Shift: 5s)",
 
   "blocks.empty": "No subtitle blocks yet.",
   "blocks.seek": "Seek player to this block",

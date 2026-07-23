@@ -1,25 +1,27 @@
 import { useRef } from "react";
 
 interface Props {
-  /** Custom property on `.app` that holds the pane width, e.g. `--sidebar-w`. */
+  /** Custom property on `.app` that holds the pane size, e.g. `--sidebar-w`. */
   cssVar: string;
-  /** Current width in pixels, from settings. */
+  /** Current size in pixels, from settings. */
   width: number;
   min: number;
   max: number;
-  /** Width to restore on double-click. */
+  /** Size to restore on double-click. */
   defaultWidth: number;
-  /** `1` when the pane sits left of the handle, `-1` when it sits right. */
+  /** `1` when the pane sits before the handle, `-1` when it sits after. */
   direction: 1 | -1;
+  /** `x` resizes a column (default), `y` resizes a row above/below. */
+  axis?: "x" | "y";
   className?: string;
   title: string;
   onCommit: (px: number) => void;
 }
 
 /**
- * Drag handle between two panes. While dragging it writes the width straight to
+ * Drag handle between two panes. While dragging it writes the size straight to
  * the CSS variable on `.app`, so resizing never re-renders the block list or the
- * waveform; the final width is committed to the store (and persisted) on release.
+ * waveform; the final size is committed to the store (and persisted) on release.
  */
 export function Splitter({
   cssVar,
@@ -28,21 +30,25 @@ export function Splitter({
   max,
   defaultWidth,
   direction,
+  axis = "x",
   className,
   title,
   onCommit,
 }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const drag = useRef<{ x: number; from: number; latest: number } | null>(null);
+  const drag = useRef<{ pos: number; from: number; latest: number } | null>(null);
 
   const host = () => ref.current?.closest(".app") as HTMLElement | null;
 
   const paint = (px: number) => host()?.style.setProperty(cssVar, `${px}px`);
 
+  const pointerPos = (e: React.PointerEvent<HTMLDivElement>) =>
+    axis === "x" ? e.clientX : e.clientY;
+
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { x: e.clientX, from: width, latest: width };
+    drag.current = { pos: pointerPos(e), from: width, latest: width };
     ref.current?.classList.add("dragging");
   };
 
@@ -51,7 +57,7 @@ export function Splitter({
     if (!d) return;
     const next = Math.min(
       max,
-      Math.max(min, d.from + (e.clientX - d.x) * direction),
+      Math.max(min, d.from + (pointerPos(e) - d.pos) * direction),
     );
     d.latest = next;
     paint(next);
@@ -70,7 +76,7 @@ export function Splitter({
       ref={ref}
       className={className ? `splitter ${className}` : "splitter"}
       role="separator"
-      aria-orientation="vertical"
+      aria-orientation={axis === "x" ? "vertical" : "horizontal"}
       title={`${title} — drag to resize, double-click to reset`}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}

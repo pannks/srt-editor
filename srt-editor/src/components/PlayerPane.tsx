@@ -8,7 +8,16 @@ import { useT } from "../state/useT";
 import { findActiveBlock } from "../lib/blocks/active";
 import { MIN_BLOCK_DURATION } from "../lib/blocks/ops";
 import type { SubtitleBlock } from "../lib/blocks/types";
-import { registerMedia, seekTo } from "../lib/player";
+import {
+  PLAYBACK_RATES,
+  getPlaybackRate,
+  registerMedia,
+  seekBy,
+  seekTo,
+  setPlaybackRate,
+  togglePlay,
+} from "../lib/player";
+import { Repeat } from "lucide-react";
 import { waveformPeaks, type Waveform } from "../lib/audio/tauri";
 import { THEME_EVENT, waveColors } from "../lib/theme";
 
@@ -106,6 +115,11 @@ export function PlayerPane() {
   /** Peaks to draw; `null` while they are still being decoded. */
   const [wave, setWave] = useState<Waveform | null>(null);
   const [waveError, setWaveError] = useState<string | null>(null);
+  const [rate, setRate] = useState(getPlaybackRate());
+  const [loop, setLoop] = useState(false);
+  /** Block to loop: the last one the playhead was inside. */
+  const loopTarget = useRef<SubtitleBlock | null>(null);
+  if (activeBlock) loopTarget.current = activeBlock;
 
   // Decode the envelope with ffmpeg. wavesurfer would otherwise fetch the media
   // and hand it to `decodeAudioData`, which fails on most video containers and
@@ -222,6 +236,44 @@ export function PlayerPane() {
       setReady(false);
     };
   }, [mediaUrl, wave, appendLog, setCurrentTime]);
+
+  // Loop the block the playhead was last inside: once the time passes its end,
+  // jump back to its start. Gaps between blocks still belong to the last block.
+  useEffect(() => {
+    if (!loop) return;
+    const target = loopTarget.current;
+    if (target && currentTime > target.end) seekTo(target.start);
+  }, [loop, currentTime]);
+
+  // Keyboard transport: space toggles playback, arrows nudge the playhead
+  // (Shift for bigger steps). Typing in a field must keep its keys.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (
+        el &&
+        (el.tagName === "INPUT" ||
+          el.tagName === "TEXTAREA" ||
+          el.tagName === "SELECT" ||
+          el.tagName === "BUTTON" ||
+          el.isContentEditable)
+      ) {
+        return;
+      }
+      if (e.key === " ") {
+        e.preventDefault();
+        togglePlay();
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        seekBy(e.shiftKey ? -5 : -1);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        seekBy(e.shiftKey ? 5 : 1);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Dragging or resizing a region retimes its block, ripple included.
   useEffect(() => {
@@ -376,7 +428,33 @@ export function PlayerPane() {
         >
           Fit
         </button>
-        <span className="muted zoom-hint">
+        <select
+          className="rate-select"
+          value={rate}
+          title={t("player.speed")}
+          aria-label={t("player.speed")}
+          onChange={(e) => {
+            const next = Number(e.target.value);
+            setRate(next);
+            setPlaybackRate(next);
+          }}
+        >
+          {PLAYBACK_RATES.map((r) => (
+            <option key={r} value={r}>
+              {r}×
+            </option>
+          ))}
+        </select>
+        <button
+          className={loop ? "icon-only loop-on" : "icon-only"}
+          onClick={() => setLoop((v) => !v)}
+          title={t("player.loopHint")}
+          aria-label={t("player.loopHint")}
+          aria-pressed={loop}
+        >
+          <Repeat size={13} />
+        </button>
+        <span className="muted zoom-hint" title={t("player.keysHint")}>
           {t("player.zoomHint", {
             zoom:
               zoom === FIT

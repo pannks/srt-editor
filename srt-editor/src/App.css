@@ -259,9 +259,14 @@ textarea:focus {
 
 /* Player + waveform */
 .player-pane {
-  border-bottom: 1px solid var(--border);
   background: var(--bg-panel);
   padding: 10px 14px;
+}
+
+/* The sidebar layout has no player splitter, so it keeps its own border. */
+.layout-side .player-pane,
+.player-pane.empty {
+  border-bottom: 1px solid var(--border);
 }
 
 .player-pane.empty {
@@ -283,7 +288,7 @@ textarea:focus {
   display: block;
   width: auto;
   max-width: 100%;
-  max-height: 260px;
+  max-height: var(--media-h, 260px);
   background: #000;
   border-radius: 6px;
 }
@@ -383,6 +388,23 @@ textarea:focus {
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+/* Playback rate: a compact select that reads like the zoom buttons. */
+.rate-select {
+  width: auto;
+  padding: 1px 4px;
+  font-size: 12px;
+  color: var(--text);
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+.wave-controls .loop-on {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 /* Body: blocks + process log */
@@ -612,10 +634,23 @@ textarea:focus {
   display: none;
 }
 
+/* Horizontal handle under the player: resizes the video height. */
+.splitter-player {
+  flex: 0 0 6px;
+  cursor: row-resize;
+  border-left: none;
+  border-top: 1px solid var(--border);
+}
+
 .splitter:hover,
 .splitter.dragging {
   background: var(--accent-soft);
   border-left-color: var(--accent);
+}
+
+.splitter-player:hover,
+.splitter-player.dragging {
+  border-top-color: var(--accent);
 }
 
 /* Projects dialog */

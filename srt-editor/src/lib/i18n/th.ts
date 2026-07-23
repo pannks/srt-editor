@@ -56,6 +56,10 @@ export const th: Dict = {
   "player.fit": "แสดงทั้งคลิป",
   "player.wholeClip": "ทั้งคลิป",
   "player.zoomHint": "{zoom} · ลากบล็อกเพื่อปรับเวลา · ⌘+สกรอลล์เพื่อซูม",
+  "player.speed": "ความเร็วการเล่น",
+  "player.loopHint": "เล่นวนบล็อกปัจจุบัน",
+  "player.mediaResize": "ความสูงของวิดีโอ",
+  "player.keysHint": "Space เล่น/หยุด · ←/→ เลื่อน 1 วินาที (Shift: 5 วินาที)",
 
   "blocks.empty": "ยังไม่มีบล็อกซับไตเติล",
   "blocks.seek": "เลื่อนเครื่องเล่นไปที่บล็อกนี้",

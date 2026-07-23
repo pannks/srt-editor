@@ -50,6 +50,8 @@ export interface Settings {
   sidebarWidth: number;
   /** Width of the process log column, pixels. */
   processWidth: number;
+  /** Max height of the video in the `top` layout, pixels. */
+  mediaHeight: number;
   /** Language of the app's own interface. */
   uiLanguage: UiLanguage;
   /** Show the translated lines under each block's source text. */
@@ -73,6 +75,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: "dark",
   sidebarWidth: 360,
   processWidth: 320,
+  mediaHeight: 260,
   uiLanguage: detectUiLanguage(),
   showTranslations: true,
   overlayLanguages: [],
@@ -184,7 +187,10 @@ interface AppState {
   saveSettings: (s: Settings) => void;
   setLayout: (layout: Layout) => void;
   setTheme: (theme: ThemeMode) => void;
-  setPaneWidth: (pane: "sidebarWidth" | "processWidth", px: number) => void;
+  setPaneWidth: (
+    pane: "sidebarWidth" | "processWidth" | "mediaHeight",
+    px: number,
+  ) => void;
   setProject: (id: number | null, name: string) => void;
   setEnv: (env: Partial<AppState["env"]>) => void;
   closeWorkspace: () => void;
