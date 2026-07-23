@@ -120,8 +120,21 @@ export function CaptionStudio() {
         setExportProgress({ done: e.payload.doneSec, total: e.payload.totalSec }),
     );
     try {
-      const ass = buildAss(blocks, layers, { width, height });
       const fonts = [...new Set(layers.map((l) => l.fontFamily))];
+      // Read each font's real win-metric ratio so the burned size matches the
+      // preview; libass shrinks by that metric, badly for Thai/CJK fonts.
+      let ratios: Record<string, number> = {};
+      try {
+        ratios = await invoke<Record<string, number>>("font_metric_ratios", {
+          fonts: fonts.map((family) => ({
+            family,
+            google: CAPTION_FONTS.find((f) => f.family === family)?.google ?? false,
+          })),
+        });
+      } catch (e) {
+        appendLog(`Font metrics unavailable, using preview sizing: ${e}`, "err");
+      }
+      const ass = buildAss(blocks, layers, { width, height }, ratios);
       await invoke<string>("export_captioned_video", {
         inputPath: mediaPath,
         outputPath,

@@ -8,6 +8,47 @@ The version lives in `package.json` and is propagated to `src-tauri/Cargo.toml` 
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-07-23
+
+### Added
+
+- **Caption Studio** — style captions and burn them straight into the video with
+  ffmpeg's libass. Per-layer control of font, size (percent of frame height),
+  bold, colour, outline, drop shadow and an optional background box, plus anchor
+  position and alignment dragged live over the picture, and animations: fade,
+  pop and word-by-word karaoke.
+- **Multi-layer captions** — stack several independently styled layers on the
+  same video (e.g. Thai over English over Chinese), each its own language, font
+  and placement, so a design survives any resolution.
+- **Google Fonts** — non-system families (Thai, CJK, display faces) are loaded
+  for the live preview and fetched as TTF for the export, so what you style is
+  what libass burns.
+- **Transcription providers** — choose among providers including OpenRouter,
+  with richer settings and reusable model profiles.
+- **Player** — resizable video pane, playback speed, single-block loop and
+  keyboard transport (space to play/pause, arrows to nudge).
+- **UI foundation** — light/dark themes, toast notifications, run progress and
+  an icon-only navigation bar.
+- **Brand icons** for the model and provider pickers.
+- **Find & replace** across every subtitle line.
+- **Batch retiming** — shift or scale the timing of many blocks at once.
+- **WebVTT export** alongside SRT.
+- **Bundled ffmpeg** — resolve a sidecar ffmpeg shipped with the app, so
+  captioning and waveforms work without a system install.
+
+### Fixed
+
+- **Burned caption size now matches the preview** — libass sizes glyphs so the
+  font's OS/2 `usWinAscent + usWinDescent` fills the nominal `Fontsize`, while
+  the browser preview fills only the em-square, so the same size rendered
+  smaller in the export — mildly for Latin fonts, badly (~30%) for Thai/CJK
+  fonts whose win metrics are tall to fit stacked marks. The export now reads
+  each font's real win metric from its bytes (a new `font_metric_ratios`
+  command, Google fonts fetched, system fonts via fontconfig) and scales the ASS
+  `Fontsize` by it, so the burn matches the preview across every font.
+- **Caption preview font size** no longer sticks at a stale frame measurement
+  when the video frame resizes or its element is swapped.
+
 ## [0.3.0] — 2026-07-22
 
 ### Added

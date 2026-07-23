@@ -3,7 +3,8 @@
 //! The ASS script itself is built (and unit-tested) in TypeScript; this side
 //! only writes it to a temp file, runs ffmpeg and streams progress back.
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::io::BufRead;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -138,6 +139,132 @@ async fn fetch_family(
         saved += 1;
     }
     Ok(saved)
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FontReq {
+    pub family: String,
+    /// True for families fetched from Google Fonts; false for system fonts.
+    pub google: bool,
+}
+
+/// Per-font ratio of `Fontsize` the export must use so libass renders text at
+/// the size the CSS preview shows. libass sizes glyphs so the font's OS/2
+/// `usWinAscent + usWinDescent` fills `Fontsize`, whereas a browser fills only
+/// the em-square, so the same number renders smaller — badly so for Thai/CJK
+/// fonts whose win metrics are tall (stacked marks). The correcting factor is
+/// exactly that metric over unitsPerEm, which the browser cannot read reliably
+/// (WebKit clamps it), so we read it from the actual font bytes here.
+#[tauri::command]
+pub async fn font_metric_ratios(
+    app: AppHandle,
+    fonts: Vec<FontReq>,
+) -> Result<HashMap<String, f64>, String> {
+    let client = reqwest::Client::builder()
+        .timeout(FONT_TIMEOUT)
+        .user_agent(TTF_UA)
+        .build()
+        .map_err(|e| e.to_string())?;
+    let dir = std::env::temp_dir().join("srt-editor").join("fonts");
+    let _ = std::fs::create_dir_all(&dir);
+
+    let mut out = HashMap::new();
+    for req in fonts {
+        let fam = req.family.trim();
+        if fam.is_empty() {
+            continue;
+        }
+        let bytes = if req.google {
+            google_font_bytes(&client, &dir, fam).await
+        } else {
+            system_font_bytes(fam)
+        };
+        if let Some(ratio) = bytes.as_deref().and_then(win_ratio_from_font) {
+            out.insert(req.family.clone(), ratio);
+        } else {
+            emit_log(&app, &format!("No metrics for “{fam}”; using preview size"));
+        }
+    }
+    Ok(out)
+}
+
+/// The regular-weight TTF for a Google family, from the cache or freshly
+/// fetched. Weight barely changes the win metric, so regular is enough.
+async fn google_font_bytes(
+    client: &reqwest::Client,
+    dir: &Path,
+    family: &str,
+) -> Option<Vec<u8>> {
+    let cached = dir.join(format!("{}-0.ttf", family.replace(' ', "_")));
+    if let Ok(bytes) = std::fs::read(&cached) {
+        if !bytes.is_empty() {
+            return Some(bytes);
+        }
+    }
+    // Not cached: fetch the family (this also warms the cache the export reuses).
+    match fetch_family(client, dir, family).await {
+        Ok(_) => std::fs::read(&cached).ok().filter(|b| !b.is_empty()),
+        Err(_) => None,
+    }
+}
+
+/// Locate an installed font by family via fontconfig and read its bytes.
+fn system_font_bytes(family: &str) -> Option<Vec<u8>> {
+    let out = std::process::Command::new("fc-match")
+        .args(["--format=%{file}", family])
+        .output()
+        .ok()?;
+    let path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if path.is_empty() {
+        return None;
+    }
+    std::fs::read(path).ok()
+}
+
+/// `(usWinAscent + usWinDescent) / unitsPerEm` read straight from the sfnt
+/// tables, the factor libass effectively scales `Fontsize` by. Returns `None`
+/// on anything it cannot parse rather than guessing.
+fn win_ratio_from_font(bytes: &[u8]) -> Option<f64> {
+    let be16 = |o: usize| -> Option<u16> {
+        bytes.get(o..o + 2).map(|b| u16::from_be_bytes([b[0], b[1]]))
+    };
+    let be32 = |o: usize| -> Option<u32> {
+        bytes
+            .get(o..o + 4)
+            .map(|b| u32::from_be_bytes([b[0], b[1], b[2], b[3]]))
+    };
+
+    // A TrueType Collection points at its first font's sfnt header.
+    let sfnt = if bytes.get(0..4) == Some(b"ttcf") {
+        be32(12)? as usize
+    } else {
+        0
+    };
+
+    let num_tables = be16(sfnt + 4)? as usize;
+    let mut head_off = None;
+    let mut os2_off = None;
+    for i in 0..num_tables {
+        let rec = sfnt + 12 + i * 16;
+        let tag = bytes.get(rec..rec + 4)?;
+        let off = be32(rec + 8)? as usize;
+        if tag == b"head" {
+            head_off = Some(off);
+        } else if tag == b"OS/2" {
+            os2_off = Some(off);
+        }
+    }
+
+    let upm = be16(head_off? + 18)?; // head.unitsPerEm
+    let win_asc = be16(os2_off? + 74)?; // OS/2.usWinAscent
+    let win_desc = be16(os2_off? + 76)?; // OS/2.usWinDescent
+    if upm == 0 {
+        return None;
+    }
+    let ratio = (win_asc as f64 + win_desc as f64) / upm as f64;
+    // Reject a nonsensical read; a real font sits well inside this range.
+    (0.5..3.0).contains(&ratio).then_some(ratio)
 }
 
 /// Percent-encode a font family for the query string (space → %20).
@@ -298,6 +425,35 @@ mod tests {
     fn encodes_a_spaced_family() {
         assert_eq!(urlencoding("Noto Sans SC"), "Noto%20Sans%20SC");
         assert_eq!(urlencoding("Kanit"), "Kanit");
+    }
+
+    #[test]
+    fn reads_win_metric_ratio_from_a_real_font() {
+        use super::win_ratio_from_font;
+        // Arial's OS/2 win metric over unitsPerEm is ~1.117; skip where the
+        // font (or a readable path to it) is not present, e.g. Linux CI.
+        let candidates = [
+            "/System/Library/Fonts/Supplemental/Arial.ttf",
+            "/Library/Fonts/Arial.ttf",
+        ];
+        let Some(bytes) = candidates
+            .iter()
+            .find_map(|p| std::fs::read(p).ok())
+        else {
+            return;
+        };
+        let ratio = win_ratio_from_font(&bytes).expect("Arial should parse");
+        assert!(
+            (ratio - 1.117).abs() < 0.02,
+            "Arial win ratio was {ratio}, expected ~1.117"
+        );
+    }
+
+    #[test]
+    fn rejects_bytes_that_are_not_a_font() {
+        use super::win_ratio_from_font;
+        assert_eq!(win_ratio_from_font(b"not a font at all"), None);
+        assert_eq!(win_ratio_from_font(&[]), None);
     }
 
     #[test]

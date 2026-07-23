@@ -23,6 +23,7 @@ pub fn run() {
             audio::extract_audio_chunks,
             audio::waveform_peaks,
             export::export_captioned_video,
+            export::font_metric_ratios,
             gemini::transcribe_chunk,
             translate::translate_chat,
             translate::list_models,

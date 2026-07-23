@@ -34,6 +34,35 @@ function widthOf(
   return c.measureText(text).width;
 }
 
+/**
+ * Fallback estimate of how much bigger libass must set `Fontsize` than the CSS
+ * `font-size` for the burned glyphs to match the preview.
+ *
+ * A browser sizes the em-square to `font-size`; libass instead sizes so the
+ * font's own ascent+descent fills `Fontsize`, so the same nominal number
+ * renders smaller — and by a different amount per font. The exact factor is the
+ * font's `(usWinAscent + usWinDescent)/em`, read from the font bytes by the Rust
+ * `font_metric_ratios` command. Canvas `fontBoundingBox` approximates it for
+ * Latin/system fonts (Arial ~1.117) but WebKit clamps it badly for Thai/CJK
+ * (Kanit reads ~1.15 vs the true ~1.58), so this is only the fallback when the
+ * measured ratio is unavailable — e.g. a system font we could not read.
+ *
+ * Returns 1 outside a DOM (unit tests) or without the font-bounding-box metrics.
+ */
+export function assFontScale(family: string, bold: boolean): number {
+  const c = measurer();
+  if (!c) return 1;
+  const em = 100;
+  c.font = `${bold ? 700 : 400} ${em}px "${family}", sans-serif`;
+  const m = c.measureText("Hg");
+  const asc = m.fontBoundingBoxAscent;
+  const desc = m.fontBoundingBoxDescent;
+  if (typeof asc !== "number" || typeof desc !== "number") return 1;
+  const ratio = (asc + desc) / em;
+  // Guard against a bogus measurement collapsing or exploding the size.
+  return ratio > 0.5 && ratio < 3 ? ratio : 1;
+}
+
 /** Break one word that is itself wider than the line (long CJK/Thai runs). */
 function hardBreak(
   word: string,

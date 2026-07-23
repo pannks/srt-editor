@@ -1,6 +1,6 @@
 import type { SubtitleBlock } from "../blocks/types";
 import { captionText, type CaptionLayer } from "./types";
-import { wrapCaptionLines } from "./wrap";
+import { assFontScale, wrapCaptionLines } from "./wrap";
 
 /**
  * Build an ASS (Advanced SubStation) script for ffmpeg's libass filter.
@@ -78,6 +78,9 @@ export interface VideoDims {
   height: number;
 }
 
+/** Font family → libass `Fontsize` correction, from `font_metric_ratios`. */
+export type FontRatios = Record<string, number>;
+
 /**
  * ASS `\an` numpad alignment: 1–3 bottom, 4–6 middle, 7–9 top; the column is
  * left/center/right. With `\pos` it decides which point of the text box sits
@@ -110,8 +113,20 @@ export function wrapMargins(
 }
 
 /** The `Style:` line for one layer, named `Caption{index}`. */
-function styleLine(layer: CaptionLayer, index: number, dims: VideoDims): string {
-  const fontSize = Math.max(8, Math.round((layer.fontSizePct / 100) * dims.height));
+function styleLine(
+  layer: CaptionLayer,
+  index: number,
+  dims: VideoDims,
+  ratios: FontRatios,
+): string {
+  // The preview sizes the CSS em-square to this height; libass renders the same
+  // nominal Fontsize smaller, so scale it up by the font's own win-metric ratio
+  // to match the preview. Prefer the exact ratio read from the font bytes; fall
+  // back to the canvas estimate. See `assFontScale`.
+  const family = layer.fontFamily || "Arial";
+  const cssPx = (layer.fontSizePct / 100) * dims.height;
+  const scale = ratios[family] ?? assFontScale(family, layer.bold);
+  const fontSize = Math.max(8, Math.round(cssPx * scale));
   // BorderStyle 3 draws BackColour as an opaque box behind the line.
   const borderStyle = layer.bgEnabled ? 3 : 1;
   const back = layer.bgEnabled
@@ -197,8 +212,11 @@ export function buildAss(
   blocks: SubtitleBlock[],
   layers: CaptionLayer[],
   dims: VideoDims,
+  ratios: FontRatios = {},
 ): string {
-  const styles = layers.map((l, i) => `Style: ${styleLine(l, i, dims)}`).join("\n");
+  const styles = layers
+    .map((l, i) => `Style: ${styleLine(l, i, dims, ratios)}`)
+    .join("\n");
   const events = layers
     .flatMap((l, i) => layerEvents(l, i, blocks, dims))
     .join("\n");
