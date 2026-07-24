@@ -8,6 +8,15 @@ The version lives in `package.json` and is propagated to `src-tauri/Cargo.toml` 
 
 ## [Unreleased]
 
+## [0.4.1] — 2026-07-24
+
+### Changed
+
+- **Windows installer bundles ffmpeg + ffprobe** — the Windows build now ships a
+  libass-enabled GPL ffmpeg as a Tauri sidecar, so captions, waveforms and export
+  work out of the box with no manual ffmpeg install. macOS still uses the
+  system-installed ffmpeg (`brew install ffmpeg`).
+
 ## [0.4.0] — 2026-07-23
 
 ### Added

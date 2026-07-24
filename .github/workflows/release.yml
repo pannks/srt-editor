@@ -54,6 +54,13 @@ jobs:
         working-directory: srt-editor
         run: bun install --frozen-lockfile
 
+      - name: Bundle ffmpeg + ffprobe (Windows)
+        if: matrix.platform == 'windows-latest'
+        shell: pwsh
+        run: srt-editor/src-tauri/scripts/fetch-ffmpeg-win.ps1
+        env:
+          FFMPEG_TARGET: ${{ matrix.target }}
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

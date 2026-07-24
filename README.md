@@ -47,9 +47,15 @@ Prebuilt bundles are on the [releases page](https://github.com/pannks/srt-editor
 | macOS, Intel | `srt-editor_<version>_x64.dmg` |
 | Windows, x64 | `srt-editor_<version>_x64-setup.exe` (or the `.msi`) |
 
-`ffmpeg` and `ffprobe` still have to be on the system — the app shells out to them to decode
-audio. The builds are unsigned, so the first launch needs right-click › *Open* on macOS, or
-SmartScreen › *More info* › *Run anyway* on Windows.
+The **Windows** installer bundles `ffmpeg` and `ffprobe` — nothing to install. On **macOS** they
+still have to be on the system (`brew install ffmpeg`); the app shells out to them to decode audio.
+The builds are unsigned, so the first launch needs right-click › *Open* on macOS, or SmartScreen ›
+*More info* › *Run anyway* on Windows.
+
+The bundled Windows `ffmpeg`/`ffprobe` are a GPL build (from
+[BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds), includes libass for burned captions).
+SRT Studio's own code stays MIT; the bundled ffmpeg binaries remain under the GPL, and their source
+is available from that project.
 
 ## Requirements
 
@@ -59,6 +65,13 @@ For building from source:
 - Rust toolchain (for Tauri)
 - `ffmpeg` and `ffprobe` on the system — `brew install ffmpeg`
 - A Gemini API key, entered in the app's Settings and stored locally. It is never written to this repository.
+
+Building a **Windows** bundle locally also needs the ffmpeg sidecars fetched first (CI does this
+automatically):
+
+```powershell
+srt-editor/src-tauri/scripts/fetch-ffmpeg-win.ps1
+```
 
 ## Run
 
