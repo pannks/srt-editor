@@ -170,6 +170,15 @@ textarea {
   border-radius: 6px;
   padding: 6px 8px;
   width: 100%;
+  box-sizing: border-box;
+}
+
+/* Free-drag resize lets a textarea grow past the dialog or collapse to nothing;
+   keep width locked to the field and only allow vertical resizing. */
+textarea {
+  resize: vertical;
+  max-width: 100%;
+  min-width: 0;
 }
 
 input:focus,
@@ -225,6 +234,16 @@ textarea:focus {
 /* The spacer only pushes things apart while everything fits on one row. */
 .toolbar .spacer {
   min-width: 8px;
+}
+
+/* Divides the media→generate→translate action group from the rest of the nav.
+   Collapses on a wrapped row so it never dangles at a line start/end. */
+.toolbar-sep {
+  align-self: stretch;
+  width: 1px;
+  min-height: 20px;
+  margin: 0 4px;
+  background: var(--border);
 }
 
 .app-logo {
@@ -1094,6 +1113,9 @@ button.tab.current {
   flex-direction: column;
   gap: 12px;
   min-height: 320px;
+  /* Keep the panel at its content height inside the flex-column modal; without
+     this it shrinks and its overflow spills over the footer (tall tabs). */
+  flex-shrink: 0;
 }
 
 .modal select {
@@ -1132,6 +1154,23 @@ button.tab.current {
 
 .field-row button {
   flex-shrink: 0;
+}
+
+/* Detected-agent chips. Only the chosen one (its command in the field) shows
+   the accent fill; hover still previews with a border, so the selected chip
+   is never confused with the one the pointer or focus last touched. */
+.agent-picker {
+  flex-wrap: wrap;
+}
+
+.agent-choice.current {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, var(--bg-raised));
+  color: var(--text);
+}
+
+.agent-choice.current:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg-raised));
 }
 
 .language-picker {

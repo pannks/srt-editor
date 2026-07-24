@@ -1,3 +1,4 @@
+pub mod acp;
 pub mod audio;
 mod db;
 pub mod export;
@@ -16,6 +17,10 @@ pub fn run() {
         .setup(|app| {
             let handle = app.handle().clone();
             app.manage(db::init(&handle)?);
+            // Give Windows a real menu bar (File/Edit/View/Window/Help with the
+            // standard copy/paste/undo items). macOS already shows a default
+            // app menu; Windows shows none unless one is set explicitly.
+            app.set_menu(tauri::menu::Menu::default(&handle)?)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -25,6 +30,10 @@ pub fn run() {
             export::export_captioned_video,
             export::font_metric_ratios,
             gemini::transcribe_chunk,
+            acp::acp_detect_agents,
+            acp::acp_ping_agent,
+            acp::acp_transcribe_chunk,
+            acp::acp_cancel,
             translate::translate_chat,
             translate::list_models,
             files::save_text_file,

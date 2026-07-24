@@ -6,7 +6,7 @@ import {
   OpenAI,
   OpenRouter,
 } from "@lobehub/icons";
-import { Cloud, Server } from "lucide-react";
+import { Bot, Cloud, Server } from "lucide-react";
 import type { ProviderId } from "../lib/translate/providers";
 
 const BRAND: Partial<Record<ProviderId, React.ComponentType<{ size?: number }>>> = {
@@ -25,5 +25,6 @@ const BRAND: Partial<Record<ProviderId, React.ComponentType<{ size?: number }>>>
 export function ProviderLogo({ id, size = 16 }: { id: ProviderId; size?: number }) {
   const Icon = BRAND[id];
   if (Icon) return <Icon size={size} />;
+  if (id === "acp") return <Bot size={size} />;
   return id === "local" ? <Server size={size} /> : <Cloud size={size} />;
 }

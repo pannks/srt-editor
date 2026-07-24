@@ -8,6 +8,45 @@ The version lives in `package.json` and is propagated to `src-tauri/Cargo.toml` 
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-07-24
+
+### Added
+
+- **Transcribe through an installed AI agent (ACP)** — a new "Agent (ACP)"
+  transcription provider drives a local agent (Gemini CLI, Claude Code, Codex,
+  or any custom command) over the Agent Client Protocol instead of a hosted
+  API. The agent signs in with its own account, so no API key is stored.
+  Settings › Transcription lists the agents found on this machine and offers
+  the rest through `npx -y` adapters (`@zed-industries/claude-code-acp`,
+  `@agentclientprotocol/codex-acp`), downloaded on first run. If the agent
+  accepts audio directly the chunk is sent inline; otherwise it gets a file
+  link plus a workspace rooted at the chunk directory and reads the audio with
+  its own tools. The agent's live activity (tool calls, thinking, reply
+  progress) streams into the Process log, so a long agentic turn is never a
+  silent wait. Leading `VAR=value` pairs in the agent command become its
+  environment — the way to run Gemini CLI with an API key
+  (`GEMINI_API_KEY=… gemini --experimental-acp`) now that its individual
+  OAuth tier is retired.
+- **Native menu bar on Windows** — the window now carries a standard
+  File/Edit/View/Window/Help menu with the usual copy/paste/undo items, which
+  Windows shows none of unless one is set explicitly (macOS already had it).
+
+### Changed
+
+- **Toolbar action grouping** — a divider separates the media → generate →
+  translate action group from the file/project nav (Open SRT, Export, Projects,
+  Close).
+
+### Fixed
+
+- **One oversized segment no longer collapses the rest** — segment end times are
+  clamped forward against the next segment instead of pushing later starts up to
+  the previous end, so a bad chunk-boundary segment can't zero out every block
+  after it.
+- **Settings textareas** stay locked to their field width — vertical resize
+  only, so a free drag can no longer stretch a textarea past the dialog or
+  collapse it to nothing.
+
 ## [0.4.1] — 2026-07-24
 
 ### Changed

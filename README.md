@@ -64,7 +64,7 @@ For building from source:
 - [bun](https://bun.sh)
 - Rust toolchain (for Tauri)
 - `ffmpeg` and `ffprobe` on the system — `brew install ffmpeg`
-- A Gemini API key, entered in the app's Settings and stored locally. It is never written to this repository.
+- For transcription, a Gemini API key (entered in the app's Settings, stored locally and never written to this repository) — or a local AI agent driven over ACP (Gemini CLI, Claude Code, Codex), which signs in with its own account and needs no key.
 
 Building a **Windows** bundle locally also needs the ffmpeg sidecars fetched first (CI does this
 automatically):
@@ -94,7 +94,7 @@ cargo check --manifest-path src-tauri/Cargo.toml
 ## How it works
 
 1. **Open media** — native file dialog; the file plays in the app and wavesurfer renders its waveform.
-2. **Generate SRT** — Rust runs ffmpeg to extract a mono 16 kHz WAV and split it into chunks (default 300 s), then POSTs each chunk to Gemini with a JSON response schema of `[{start, end, text}]`. The request runs in Rust rather than the webview because the inline audio is several megabytes, which macOS WKWebView's `fetch` rejects. Segment times are offset by each chunk's start and merged into blocks. Every step is logged in the Process panel.
+2. **Generate SRT** — Rust runs ffmpeg to extract a mono 16 kHz WAV and split it into chunks (default 300 s), then POSTs each chunk to Gemini with a JSON response schema of `[{start, end, text}]`. The request runs in Rust rather than the webview because the inline audio is several megabytes, which macOS WKWebView's `fetch` rejects. Segment times are offset by each chunk's start and merged into blocks. Every step is logged in the Process panel. Instead of the Gemini API, transcription can also be driven through a local AI agent over the [Agent Client Protocol](https://agentclientprotocol.com) — its live tool calls and thinking stream into the Process log.
 3. **Edit blocks** — inline text editing, merge with previous, merge with next, cut at a word boundary, delete.
 4. **Retime blocks** — scrub or type into the timecode fields, or drag the block's region on the waveform. Neighbours ripple out of the way so cues never overlap.
 5. **Translate** — blocks are sent in batches to a local OpenAI-compatible server (Ollama, LM Studio) or a cloud model (Anthropic, OpenAI, Gemini), each request carrying the neighbouring lines as context. Every block can hold a translation per language.

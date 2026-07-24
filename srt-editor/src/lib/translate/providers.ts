@@ -9,10 +9,14 @@ export type ProviderId =
   | "openrouter"
   | "anthropic"
   | "gemini"
-  | "cloud";
+  | "cloud"
+  | "acp";
 
-/** The wire protocol behind it — all Rust needs to know. */
-export type ProviderApi = "openai" | "anthropic" | "gemini";
+/**
+ * The wire protocol behind it — all Rust needs to know. `acp` is not HTTP at
+ * all: an installed agent subprocess spoken to over the Agent Client Protocol.
+ */
+export type ProviderApi = "openai" | "anthropic" | "gemini" | "acp";
 
 export interface ProviderSpec {
   id: ProviderId;
@@ -57,6 +61,16 @@ export const PROVIDERS: ProviderSpec[] = [
     local: true,
     baseUrl: "http://localhost:8080/v1",
     editableBaseUrl: true,
+    needsKey: false,
+    defaultModel: "",
+  },
+  {
+    id: "acp",
+    label: "Agent (ACP)",
+    api: "acp",
+    local: true,
+    baseUrl: "",
+    editableBaseUrl: false,
     needsKey: false,
     defaultModel: "",
   },
@@ -114,7 +128,9 @@ export const PROVIDERS: ProviderSpec[] = [
 
 const BY_ID = new Map(PROVIDERS.map((p) => [p.id, p]));
 
-export const LOCAL_PROVIDERS = PROVIDERS.filter((p) => p.local);
+// Translation stays HTTP-only for now, so the ACP entry is left out here;
+// transcription builds its own list in `transcribe/types.ts`.
+export const LOCAL_PROVIDERS = PROVIDERS.filter((p) => p.local && p.api !== "acp");
 export const CLOUD_PROVIDERS = PROVIDERS.filter((p) => !p.local);
 
 /** Unknown ids fall back to Ollama, which is the safe local default. */
