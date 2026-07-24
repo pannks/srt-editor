@@ -22,9 +22,11 @@ Grab a build from the [releases page](https://github.com/pannks/srt-editor/relea
 | macOS, Intel          | `srt-editor_<version>_x64.dmg`  |
 | Windows, x64          | `srt-editor_<version>_x64-setup.exe` (or the `.msi`) |
 
-`ffmpeg` and `ffprobe` must be on the system — the app shells out to them to
-decode audio (`brew install ffmpeg`, or [ffmpeg.org](https://ffmpeg.org/download.html)
-on Windows).
+The **Windows** installer bundles `ffmpeg` and `ffprobe` — nothing to install. On
+**macOS** they must be on the system — the app shells out to them to decode audio
+(`brew install ffmpeg`). The bundled Windows binaries are a GPL build (from
+[BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds), with libass); SRT
+Studio's own code stays MIT.
 
 The builds are unsigned, so the OS will not trust them on first launch. On macOS,
 open the `.app` once with right-click › *Open* (or clear the quarantine flag with
@@ -37,7 +39,9 @@ For building from source:
 
 - [bun](https://bun.sh)
 - Rust toolchain (for Tauri)
-- `ffmpeg` + `ffprobe` on the system (`brew install ffmpeg`)
+- `ffmpeg` + `ffprobe` on the system (`brew install ffmpeg`) — macOS builds and
+  dev; the Windows release bundles them via
+  `src-tauri/scripts/fetch-ffmpeg-win.ps1`
 - A Gemini API key (entered in the app's Settings, stored locally)
 - For translation, either a local OpenAI-compatible server (Ollama, LM Studio,
   llama.cpp) or a cloud key — configured in Settings › Translation
