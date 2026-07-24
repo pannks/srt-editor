@@ -19,6 +19,8 @@ export const th: Dict = {
   "toolbar.translateHint": "แปลเฉพาะบล็อกที่ยังไม่มีคำแปล — หยุดแล้วกดอีกครั้งเพื่อทำต่อ",
   "toolbar.stop": "หยุด",
   "toolbar.stopping": "กำลังหยุด…",
+  "toolbar.stopAcpHint":
+    "หยุดเอเจนต์ — โปรเซสของเอเจนต์จะถูกปิดและยกเลิกชิ้นเสียงที่กำลังทำอยู่",
   "toolbar.stopHint": "รอคำขอที่ค้างอยู่ให้จบแล้วหยุด สิ่งที่แปลไปแล้วยังอยู่ครบ",
   "toolbar.about": "เกี่ยวกับ",
   "toolbar.close": "ปิดงาน",
@@ -179,6 +181,20 @@ export const th: Dict = {
   "settings.recommendedModel": "แนะนำ: {model} (Google Gemini)",
   "settings.audioModelHint":
     "โมเดลที่เลือกต้องรองรับไฟล์เสียง — ถ้าใช้ OpenRouter หรือ OpenAI ให้เลือกโมเดลที่รับเสียงได้ โมเดลที่รับเฉพาะข้อความจะปฏิเสธคำขอ",
+
+  "settings.acpAgentCmd": "คำสั่งเรียกเอเจนต์",
+  "settings.acpAgentHint":
+    "คำสั่งที่เปิดเอเจนต์ ACP ผ่าน stdio เช่น “gemini --experimental-acp” — เอเจนต์ล็อกอินด้วยบัญชีของตัวเอง ใส่ VAR=value นำหน้าเพื่อกำหนดตัวแปรแวดล้อมได้ เช่น “GEMINI_API_KEY=… gemini --experimental-acp”",
+  "settings.acpDetected": "เอเจนต์ที่เครื่องนี้เรียกใช้ได้",
+  "settings.acpNpxHint":
+    "รายการที่มี “· npx” ยังไม่ได้ติดตั้ง — npx จะดาวน์โหลดอะแดปเตอร์เมื่อรันครั้งแรก การกดทดสอบการเชื่อมต่อครั้งแรกจึงอาจใช้เวลาสักครู่",
+  "settings.acpNoneFound":
+    "ไม่พบเอเจนต์ ACP ที่รู้จัก — ติดตั้ง Gemini CLI (npm i -g @google/gemini-cli) หรืออะแดปเตอร์ Claude Code (npm i -g @zed-industries/claude-code-acp) หรือพิมพ์คำสั่งเอง",
+  "settings.acpTestOkAudio": "เอเจนต์พร้อมใช้งาน — รับไฟล์เสียงได้โดยตรง",
+  "settings.acpTestOkFile":
+    "เอเจนต์พร้อมใช้งาน — รับเสียงโดยตรงไม่ได้ จะอ่านไฟล์เสียงด้วยเครื่องมือของตัวเองแทน",
+  "settings.acpProviderHint":
+    "เอเจนต์ทำงานในเครื่องผ่าน Agent Client Protocol และล็อกอินด้วยบัญชีของตัวเอง คุณภาพการถอดเสียงและเวลากำกับขึ้นกับโมเดลเบื้องหลังเอเจนต์ — แนะนำ Gemini CLI",
 
   "profiles.name": "ชื่อโปรไฟล์",
   "profiles.saveCurrent": "บันทึกการตั้งค่าปัจจุบัน",

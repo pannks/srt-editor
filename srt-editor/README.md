@@ -42,7 +42,10 @@ For building from source:
 - `ffmpeg` + `ffprobe` on the system (`brew install ffmpeg`) — macOS builds and
   dev; the Windows release bundles them via
   `src-tauri/scripts/fetch-ffmpeg-win.ps1`
-- A Gemini API key (entered in the app's Settings, stored locally)
+- For transcription, either a Gemini API key (entered in the app's Settings,
+  stored locally) **or** a local AI agent to drive over ACP (Gemini CLI, Claude
+  Code, Codex — see *Agent (ACP)* below), which signs in with its own account
+  and needs no key stored in the app
 - For translation, either a local OpenAI-compatible server (Ollama, LM Studio,
   llama.cpp) or a cloud key — configured in Settings › Translation
 
@@ -86,6 +89,7 @@ GEMINI_API_KEY=your-key SRT_TEST_AUDIO=/path/to/clip.wav cargo test --manifest-p
 
 1. **Open media** — native file dialog, or drop a video, audio file or `.srt` anywhere on the window; the file plays in the app and the waveform is drawn from a peak envelope **decoded by ffmpeg in Rust** (`waveform_peaks`), not by the webview. wavesurfer's own decoder uses the browser's `decodeAudioData`, which rejects most video containers (mkv, avi, opus-in-webm) and leaves the pane blank; ffmpeg reads all of them, and skipping the in-webview decode also makes large files load faster. If there is no audio track at all — or ffmpeg cannot read the file — the pane falls back to a flat, correctly-timed empty track, so regions, retiming and every block edit keep working; the Process log says so.
 2. **Generate SRT** — Rust invokes ffmpeg to extract mono 16 kHz WAV and split it into chunks (default 300 s, configurable). Rust then POSTs each chunk to Gemini (default model `gemini-3.1-pro-preview`, configurable) with the transcription prompt and a JSON response schema `[{start, end, text}]`. The request runs in Rust rather than the webview because the inline audio is several megabytes, which macOS WKWebView's `fetch` rejects with "Load failed". Segment times are offset by each chunk's start and merged into subtitle blocks. Every step is logged in the Process panel.
+   - **Agent (ACP)** — instead of a hosted API, Settings › Transcription can point at a local AI agent driven over the [Agent Client Protocol](https://agentclientprotocol.com): the app lists the agents found on this machine (Gemini CLI, Claude Code, Codex) and offers the rest through `npx -y` adapters (`@zed-industries/claude-code-acp`, `@agentclientprotocol/codex-acp`), downloaded on first run. The agent authenticates with its own account, so no API key is stored. If it accepts audio content blocks the chunk is sent inline; otherwise it gets a file link plus a workspace rooted at the chunk directory and reads the audio with its own tools. The agent's live activity — tool calls, thinking, reply progress — streams into the Process log, so a long agentic turn is never a silent wait, and **Stop** kills the agent process. Leading `VAR=value` pairs in the command become its environment (e.g. `GEMINI_API_KEY=… gemini --experimental-acp`).
 3. **Edit blocks** — inline text editing, merge into the previous block, merge with the next one, cut, delete. Clicking a block's number seeks the player; blocks appear as regions on the waveform; the block under the playhead is highlighted.
    - **Cut** splits at the exact caret position, mid-word included — put the caret where the new block should start and press the scissors or `⌘/Ctrl+Enter`. With no caret it falls back to the middle word.
    - **Backspace** at the very start of a block merges it into the previous one; **Delete** at the very end merges the next one in — the same gesture as joining paragraphs in a text editor.

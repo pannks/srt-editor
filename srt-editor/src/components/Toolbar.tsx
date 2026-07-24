@@ -22,6 +22,7 @@ import { useT } from "../state/useT";
 import { resolveTheme } from "../lib/theme";
 import { openPath } from "../state/openFiles";
 import { generateBlocks } from "../lib/pipeline/generate";
+import { cancelAcp } from "../lib/transcribe/acp";
 import { translateBlocks } from "../lib/translate/run";
 import { AUDIO_EXT, VIDEO_EXT } from "../lib/media/kind";
 import { APP_VERSION } from "../lib/version";
@@ -139,9 +140,8 @@ export function Toolbar() {
 
   return (
     <header className="toolbar">
-      <img className="app-logo" src="/logo-srt-editor.png" alt="" />
+      <img className="app-logo" src="/logo-srt-editor.png" alt={t("app.name")} />
       <span className="app-title">
-        {t("app.name")}
         <small className="app-version" title={t("toolbar.version")}>
           v{APP_VERSION}
         </small>
@@ -200,6 +200,16 @@ export function Toolbar() {
             : t("toolbar.stop")}
         </button>
       )}
+      {store.generating && store.settings.transcription.provider === "acp" && (
+        <button
+          className="danger"
+          onClick={() => void cancelAcp()}
+          title={t("toolbar.stopAcpHint")}
+        >
+          <Square size={13} /> {t("toolbar.stop")}
+        </button>
+      )}
+      <span className="toolbar-sep" aria-hidden="true" />
       <button onClick={pickSrt} title={t("toolbar.openSrtHint")}>
         <Captions size={14} /> {t("toolbar.openSrt")}
       </button>

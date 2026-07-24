@@ -23,6 +23,8 @@ export const en = {
   "toolbar.stopping": "Stopping…",
   "toolbar.stopHint":
     "Finish the request in flight and stop. What has been translated is kept.",
+  "toolbar.stopAcpHint":
+    "Stop the agent — its process is ended and the current chunk is abandoned.",
   "toolbar.about": "About",
   "toolbar.close": "Close",
   "toolbar.closeHint": "Clear the media, the blocks and the open project",
@@ -194,6 +196,20 @@ export const en = {
   "settings.recommendedModel": "Recommended: {model} (Google Gemini).",
   "settings.audioModelHint":
     "The chosen model must accept audio input — on OpenRouter or OpenAI, pick an audio-capable model; text-only models will refuse the request.",
+
+  "settings.acpAgentCmd": "Agent command",
+  "settings.acpAgentHint":
+    "Command that starts an ACP agent on stdio, e.g. “gemini --experimental-acp”. The agent signs in with its own account. Leading VAR=value pairs become its environment, e.g. “GEMINI_API_KEY=… gemini --experimental-acp”.",
+  "settings.acpDetected": "Agents this machine can run",
+  "settings.acpNpxHint":
+    "“· npx” entries are not installed yet — npx downloads the adapter the first time it runs, so the first Test connection can take a minute.",
+  "settings.acpNoneFound":
+    "No known ACP agent found — install Gemini CLI (npm i -g @google/gemini-cli) or the Claude Code adapter (npm i -g @zed-industries/claude-code-acp), or type a command yourself.",
+  "settings.acpTestOkAudio": "Agent ready — it accepts audio directly.",
+  "settings.acpTestOkFile":
+    "Agent ready — it cannot take audio directly, so it will read the chunk file with its own tools.",
+  "settings.acpProviderHint":
+    "The agent runs locally over the Agent Client Protocol and signs in on its own. Transcription quality and timestamps depend on the model behind the agent — Gemini CLI is the recommended choice.",
 
   "profiles.name": "Profile name",
   "profiles.saveCurrent": "Save current setup",

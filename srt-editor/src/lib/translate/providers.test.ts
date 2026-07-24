@@ -12,11 +12,13 @@ import {
 import { applyProvider, DEFAULT_TRANSLATION, normalizeTranslation } from "./types";
 
 describe("catalogue", () => {
-  it("splits into local and cloud with nothing lost", () => {
+  it("splits into local and cloud, losing only the ACP entry", () => {
+    // ACP is transcription-only, so the translation lists leave it out.
     expect(LOCAL_PROVIDERS.length + CLOUD_PROVIDERS.length).toBe(
-      PROVIDERS.length,
+      PROVIDERS.filter((p) => p.api !== "acp").length,
     );
     expect(LOCAL_PROVIDERS.map((p) => p.id)).toContain("ollama");
+    expect(LOCAL_PROVIDERS.map((p) => p.id)).not.toContain("acp");
     expect(CLOUD_PROVIDERS.map((p) => p.id)).toEqual(
       expect.arrayContaining(["anthropic", "openai", "gemini"]),
     );

@@ -17,7 +17,7 @@ export interface ProfileStage {
 export interface ModelProfile {
   id: string;
   name: string;
-  transcription: ProfileStage & { chunkSecs: number };
+  transcription: ProfileStage & { chunkSecs: number; agentCmd: string };
   translation: ProfileStage;
 }
 
@@ -39,6 +39,7 @@ export function profileFromSettings(
     transcription: {
       ...stage(settings.transcription),
       chunkSecs: settings.transcription.chunkSecs,
+      agentCmd: settings.transcription.agentCmd,
     },
     translation: stage(settings.translation),
   };

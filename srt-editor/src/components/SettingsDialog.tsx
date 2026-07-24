@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ModelIcon } from "@lobehub/icons";
 import {
+  Bot,
   Eye,
   EyeOff,
   Languages,
@@ -26,6 +27,7 @@ import {
   TRANSCRIBE_PROVIDERS,
   normalizeTranscription,
 } from "../lib/transcribe/types";
+import { detectAcpAgents, pingAcpAgent, type AcpAgent } from "../lib/transcribe/acp";
 import { applySettingsProfile, profileFromSettings } from "../lib/profiles";
 import {
   applyProvider,
@@ -100,6 +102,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     transcription: EMPTY_STAGE_UI,
     translation: EMPTY_STAGE_UI,
   });
+  /** `null` until the one-shot probe for installed ACP agents has run. */
+  const [acpAgents, setAcpAgents] = useState<AcpAgent[] | null>(null);
 
   const patch = (fields: Partial<Settings>) =>
     setDraft((d) => ({ ...d, ...fields }));
@@ -141,6 +145,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     if (tab !== "transcription" && tab !== "translation") return;
     const cfg = draft[tab];
+    // An ACP agent has no /models endpoint — nothing to list.
+    if (providerApi(cfg.provider) === "acp") {
+      patchUi(tab, { models: [] });
+      return;
+    }
     if (providerSpec(cfg.provider).needsKey && cfg.apiKey.trim() === "") {
       patchUi(tab, { models: [] });
       return;
@@ -150,6 +159,19 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     // endpoint; the Detect button covers those.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, draft.transcription.provider, draft.translation.provider]);
+
+  // Probe once for installed agents, the first time the ACP provider is shown.
+  useEffect(() => {
+    if (
+      tab !== "transcription" ||
+      draft.transcription.provider !== "acp" ||
+      acpAgents !== null
+    )
+      return;
+    detectAcpAgents()
+      .then(setAcpAgents)
+      .catch(() => setAcpAgents([]));
+  }, [tab, draft.transcription.provider, acpAgents]);
 
   const changeProvider = (stage: Stage, id: ProviderId) => {
     const known = stageUi[stage].models.map((m) => m.id);
@@ -161,6 +183,17 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
     patchUi(stage, { testBusy: true, testMessage: null, testOk: false });
     const { provider, baseUrl, apiKey, model } = draft[stage];
     try {
+      if (providerApi(provider) === "acp") {
+        const info = await pingAcpAgent(draft.transcription.agentCmd);
+        patchUi(stage, {
+          testBusy: false,
+          testOk: true,
+          testMessage: t(
+            info.audio ? "settings.acpTestOkAudio" : "settings.acpTestOkFile",
+          ),
+        });
+        return;
+      }
       await pingProvider({ api: providerApi(provider), baseUrl, apiKey, model });
       patchUi(stage, {
         testBusy: false,
@@ -280,6 +313,54 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
           </span>
         </label>
 
+        {spec.api === "acp" ? (
+          <>
+            <label>
+              {t("settings.acpAgentCmd")}
+              <input
+                type="text"
+                value={draft.transcription.agentCmd}
+                spellCheck={false}
+                placeholder="gemini --experimental-acp"
+                onChange={(e) => patchStage(stage, { agentCmd: e.target.value })}
+              />
+              <small className="muted">{t("settings.acpAgentHint")}</small>
+            </label>
+            {acpAgents === null ? (
+              <small className="muted">
+                <Loader2 size={12} className="spin" /> {t("settings.detecting")}
+              </small>
+            ) : acpAgents.length > 0 ? (
+              <label>
+                {t("settings.acpDetected")}
+                <span className="field-row agent-picker">
+                  {acpAgents.map((a) => {
+                    const active = draft.transcription.agentCmd === a.command;
+                    return (
+                      <button
+                        key={a.id}
+                        type="button"
+                        className={active ? "agent-choice current" : "agent-choice"}
+                        aria-pressed={active}
+                        title={a.installed ? a.command : t("settings.acpNpxHint")}
+                        onClick={() => patchStage(stage, { agentCmd: a.command })}
+                      >
+                        <Bot size={14} /> {a.label}
+                        {!a.installed && <span className="muted"> · npx</span>}
+                      </button>
+                    );
+                  })}
+                </span>
+                {acpAgents.some((a) => !a.installed) && (
+                  <small className="muted">{t("settings.acpNpxHint")}</small>
+                )}
+              </label>
+            ) : (
+              <small className="muted">{t("settings.acpNoneFound")}</small>
+            )}
+          </>
+        ) : (
+          <>
         {spec.editableBaseUrl && (
           <label>
             {t("settings.baseUrl")}
@@ -375,6 +456,8 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
             )}
         </label>
         {ui.detectError && <p className="form-error">{ui.detectError}</p>}
+          </>
+        )}
 
         <div className="modal-actions">
           <button onClick={() => runTest(stage)} disabled={ui.testBusy}>
@@ -508,10 +591,11 @@ export function SettingsDialog({ onClose }: { onClose: () => void }) {
                 cloud: TRANSCRIBE_PROVIDERS.filter((p) => !p.local),
               })}
               <small className="muted">
-                {t("settings.recommendedModel", {
-                  model: RECOMMENDED_TRANSCRIBE_MODEL,
-                })}{" "}
-                {t("settings.audioModelHint")}
+                {draft.transcription.provider === "acp"
+                  ? t("settings.acpProviderHint")
+                  : `${t("settings.recommendedModel", {
+                      model: RECOMMENDED_TRANSCRIBE_MODEL,
+                    })} ${t("settings.audioModelHint")}`}
               </small>
               <label>
                 {t("settings.chunk")}
