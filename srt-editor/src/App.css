@@ -593,6 +593,81 @@ button.cap-chip.current {
   cursor: pointer;
 }
 
+/* Template gallery: a horizontal strip of live style samples. */
+.cap-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.cap-templates-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.cap-template-row {
+  display: flex;
+  gap: 7px;
+  overflow-x: auto;
+  padding-bottom: 3px;
+}
+
+button.cap-template {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 96px;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  cursor: pointer;
+}
+
+button.cap-template.current {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.cap-template-sample {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 0 6px;
+  /* A neutral checkerboard-ish backdrop so light text stays visible. */
+  background: linear-gradient(135deg, #3a3f4b, #23262e);
+  font-size: 15px;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.cap-template-name {
+  padding: 2px 4px 4px;
+  font-size: 10.5px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.cap-center-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.cap-center-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11.5px;
+  border-radius: 6px;
+  background: var(--bg-raised);
+}
+
 /* Editor: three compact sections, each a bordered card. */
 .cap-editor {
   display: grid;
@@ -756,10 +831,20 @@ button.cap-chip.current {
   animation: caption-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-/* The karaoke sweep drags the two-tone gradient window across the glyphs. */
-.caption-preview.anim-karaoke {
-  background-position: 100% 0;
-  animation: caption-karaoke var(--kara-dur, 2s) linear forwards;
+/* Word-driven modes colour each word on the playhead (see CaptionPreview). */
+.caption-preview.wordy .cap-words {
+  display: block;
+}
+.caption-preview .cap-line {
+  display: block;
+}
+.caption-preview .cap-word {
+  transition: color 0.12s linear;
+}
+
+/* One word at a time: pop each incoming word in. */
+.caption-preview.anim-word .cap-words {
+  animation: caption-word-pop 0.28s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 @keyframes caption-fade {
@@ -775,12 +860,10 @@ button.cap-chip.current {
   }
 }
 
-@keyframes caption-karaoke {
+@keyframes caption-word-pop {
   from {
-    background-position: 100% 0;
-  }
-  to {
-    background-position: 0% 0;
+    transform: scale(0.55);
+    opacity: 0;
   }
 }
 

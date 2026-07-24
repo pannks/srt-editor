@@ -22,7 +22,12 @@ function measurer(): CanvasRenderingContext2D | null {
   return ctx;
 }
 
-function widthOf(
+/**
+ * Rendered width of `text` in pixels, or 0 outside a DOM (no canvas). Exported
+ * so word-by-word layout can lay words onto lines with the same measurer the
+ * line wrapper uses, keeping preview and export line breaks identical.
+ */
+export function widthOf(
   text: string,
   fontPx: number,
   family: string,
@@ -32,6 +37,11 @@ function widthOf(
   if (!c) return 0;
   c.font = `${bold ? 700 : 400} ${fontPx}px "${family}", sans-serif`;
   return c.measureText(text).width;
+}
+
+/** True when text can actually be measured (a DOM canvas is available). */
+export function canMeasure(): boolean {
+  return measurer() !== null;
 }
 
 /**

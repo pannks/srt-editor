@@ -173,6 +173,42 @@ describe("buildAss", () => {
     expect(out).toMatch(/\{\\k\d+\}two \{\\k\d+\}words/);
   });
 
+  it("segments Thai karaoke without spaces", () => {
+    const out = buildAss(
+      [block(0, 2, "สวัสดีครับ")],
+      one({ animation: "karaoke" }),
+      dims,
+    );
+    // More than one \k tag means the run was broken into words.
+    expect([...out.matchAll(/\\k\d+/g)].length).toBeGreaterThan(1);
+  });
+
+  it("highlight mode redraws once per word with an accent colour", () => {
+    const out = buildAss(
+      [block(0, 2, "two words")],
+      one({ animation: "highlight", highlightColor: "#ff0000" }),
+      dims,
+    );
+    const dialogue = out.split("\n").filter((l) => l.startsWith("Dialogue:"));
+    expect(dialogue).toHaveLength(2); // one per word
+    // Accent colour override (#ff0000 → &H000000FF) appears in the body.
+    expect(out).toContain("&H000000FF");
+  });
+
+  it("word mode shows one word at a time with a pop", () => {
+    const out = buildAss(
+      [block(0, 2, "two words")],
+      one({ animation: "word" }),
+      dims,
+    );
+    const dialogue = out.split("\n").filter((l) => l.startsWith("Dialogue:"));
+    expect(dialogue).toHaveLength(2);
+    expect(dialogue[0]).toContain("\\t(0,120,");
+    // Only its own word, not the whole caption, in each event.
+    expect(dialogue[0]).toContain("two");
+    expect(dialogue[0]).not.toContain("words");
+  });
+
   it("stacks several layers, each its own style and language", () => {
     const out = buildAss(
       [block(0, 1, "hi", { th: "สวัสดี", zh: "你好" })],

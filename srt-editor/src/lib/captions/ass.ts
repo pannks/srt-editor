@@ -1,6 +1,7 @@
 import type { SubtitleBlock } from "../blocks/types";
 import { captionText, type CaptionLayer } from "./types";
 import { assFontScale, wrapCaptionLines } from "./wrap";
+import { layoutWords, timedWords, type TimedWord } from "./words";
 
 /**
  * Build an ASS (Advanced SubStation) script for ffmpeg's libass filter.
@@ -43,23 +44,27 @@ export function escapeAssText(text: string): string {
     .replace(/\r?\n/g, "\\N");
 }
 
-/** Karaoke: one `\k` per word, its share of the block proportional to length. */
-export function karaokeText(text: string, durationSec: number): string {
-  const words = text.split(/\s+/).filter((w) => w !== "");
+/**
+ * Karaoke: one `\k` per word, its centisecond share taken from real word
+ * timing (Thai/CJK segmented by dictionary, not spaces). The last word absorbs
+ * rounding so the shares sum to the block's duration.
+ */
+export function karaokeText(text: string, durationSec: number, locale = ""): string {
+  const words = timedWords(text, 0, Math.max(0, durationSec), locale);
   if (words.length === 0) return text;
   const totalCs = Math.max(words.length, Math.round(durationSec * 100));
-  const weight = words.reduce((sum, w) => sum + w.length, 0);
   let spent = 0;
   return words
     .map((word, i) => {
+      const share = Math.round((word.end - word.start) * 100);
       const cs =
         i === words.length - 1
-          ? totalCs - spent // the last word absorbs the rounding error
-          : Math.max(1, Math.round((totalCs * word.length) / weight));
+          ? Math.max(1, totalCs - spent) // last word absorbs the rounding error
+          : Math.max(1, share);
       spent += cs;
-      return `{\\k${cs}}${word}`;
+      return `{\\k${cs}}${escapeAssText(word.text)}`;
     })
-    .join(" ");
+    .join("");
 }
 
 function animationTags(layer: CaptionLayer): string {
@@ -132,13 +137,19 @@ function styleLine(
   const back = layer.bgEnabled
     ? assColor(layer.bgColor, (1 - layer.bgOpacity) * 255)
     : assColor("#000000", 128);
+  // Karaoke `\k` sweeps SecondaryColour (unread) → PrimaryColour (read/sung).
+  // So the read colour is the layer's highlight and the unread is its text
+  // colour — both user-set, nothing hardcoded. Other modes never sweep, so
+  // Primary is just the text colour and Secondary is unused.
+  const isKaraoke = layer.animation === "karaoke";
+  const primary = assColor(isKaraoke ? layer.highlightColor : layer.color);
+  const secondary = assColor(layer.color);
   return [
     `Caption${index}`,
     layer.fontFamily || "Arial",
     fontSize,
-    assColor(layer.color),
-    // Karaoke sweeps SecondaryColour → PrimaryColour; a dim grey reads well.
-    assColor("#888888"),
+    primary,
+    secondary,
     assColor(layer.outlineColor),
     back,
     layer.bold ? -1 : 0,
@@ -161,17 +172,50 @@ function styleLine(
 }
 
 /**
- * Karaoke across wrapped lines: each line gets its share of the duration by
- * length, then `karaokeText` distributes that within the line. Lines join with
- * the ASS hard break so the sweep spans the whole caption.
+ * Karaoke body across wrapped lines. Words are laid out with the shared
+ * measurer so breaks match the preview, then each carries its `\k` share; lines
+ * join with the ASS hard break so the sweep spans the whole caption.
  */
-function karaokeLines(lines: string[], durationSec: number): string {
-  const weight = lines.reduce((sum, l) => sum + Math.max(1, l.length), 0);
+function karaokeBody(lines: TimedWord[][]): string {
   return lines
     .map((line) =>
-      karaokeText(escapeAssText(line), durationSec * (Math.max(1, line.length) / weight)),
+      line
+        .map((w) => {
+          const cs = Math.max(1, Math.round((w.end - w.start) * 100));
+          return `{\\k${cs}}${escapeAssText(w.text)}`;
+        })
+        .join(""),
     )
     .join("\\N");
+}
+
+/**
+ * Highlight body for the word active during one slice: the full caption, with
+ * the active word recoloured to the accent and the rest at the base colour.
+ */
+function highlightBody(
+  lines: TimedWord[][],
+  activeStart: number,
+  base: string,
+  accent: string,
+): string {
+  return lines
+    .map((line) =>
+      line
+        .map((w) => {
+          const esc = escapeAssText(w.text);
+          return w.start === activeStart
+            ? `{\\c${accent}}${esc}{\\c${base}}`
+            : esc;
+        })
+        .join(""),
+    )
+    .join("\\N");
+}
+
+/** Escape + trim a word for one-word-at-a-time mode (drops its trailing space). */
+function loneWord(text: string): string {
+  return escapeAssText(text.trim());
 }
 
 /** The `Dialogue:` lines one layer contributes across every block. */
@@ -185,26 +229,46 @@ function layerEvents(
   const y = Math.round(layer.posY * dims.height);
   const fontPx = (layer.fontSizePct / 100) * dims.height;
   const maxWidthPx = layer.widthPct * dims.width;
-  const tags = `\\an${assAlignment(layer)}\\pos(${x},${y})${animationTags(layer)}`;
+  const family = layer.fontFamily || "Arial";
+  const anchor = `\\an${assAlignment(layer)}\\pos(${x},${y})`;
+  const style = `Caption${index}`;
+  const line = (start: number, end: number, tags: string, body: string) =>
+    `Dialogue: 0,${assTime(start)},${assTime(end)},${style},,0,0,0,,{${tags}}${body}`;
+
   return blocks.flatMap((block) => {
     const raw = captionText(block, layer);
     if (raw === "") return [];
-    // Pre-wrap with the shared breaker so the export matches the preview line
-    // for line; WrapStyle 2 keeps libass from re-wrapping our breaks.
-    const lines = wrapCaptionLines(
-      raw,
-      maxWidthPx,
-      fontPx,
-      layer.fontFamily || "Arial",
-      layer.bold,
-    );
-    const body =
-      layer.animation === "karaoke"
-        ? karaokeLines(lines, block.end - block.start)
-        : lines.map(escapeAssText).join("\\N");
-    return [
-      `Dialogue: 0,${assTime(block.start)},${assTime(block.end)},Caption${index},,0,0,0,,{${tags}}${body}`,
-    ];
+
+    // karaoke / highlight lay text out word by word so timing and line breaks
+    // both come from the real words; the plainer modes pre-wrap whole lines.
+    if (layer.animation === "karaoke" || layer.animation === "highlight") {
+      const words = timedWords(raw, block.start, block.end, layer.language);
+      const lines = layoutWords(words, maxWidthPx, fontPx, family, layer.bold);
+      if (layer.animation === "karaoke") {
+        return [line(block.start, block.end, anchor, karaokeBody(lines))];
+      }
+      // Highlight: one event per word, each redrawing the caption with that
+      // word accented. Consecutive words that share a start (shouldn't happen)
+      // still produce valid, overlapping-free slices.
+      const base = assColor(layer.color);
+      const accent = assColor(layer.highlightColor);
+      return words.map((w) =>
+        line(w.start, w.end, anchor, highlightBody(lines, w.start, base, accent)),
+      );
+    }
+
+    if (layer.animation === "word") {
+      // One word at a time, each popping in over its own slice.
+      const words = timedWords(raw, block.start, block.end, layer.language);
+      const pop = "\\fscx70\\fscy70\\t(0,120,\\fscx100\\fscy100)";
+      return words.map((w) => line(w.start, w.end, `${anchor}${pop}`, loneWord(w.text)));
+    }
+
+    // none / fade / pop: pre-wrap with the shared breaker; WrapStyle 2 keeps
+    // libass from re-wrapping our breaks.
+    const lines = wrapCaptionLines(raw, maxWidthPx, fontPx, family, layer.bold);
+    const body = lines.map(escapeAssText).join("\\N");
+    return [line(block.start, block.end, `${anchor}${animationTags(layer)}`, body)];
   });
 }
 

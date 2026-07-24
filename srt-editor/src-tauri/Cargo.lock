@@ -3491,7 +3491,7 @@ dependencies = [
 
 [[package]]
 name = "srt-editor"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "base64 0.22.1",
  "reqwest 0.12.28",

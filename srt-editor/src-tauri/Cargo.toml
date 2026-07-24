@@ -1,6 +1,6 @@
 [package]
 name = "srt-editor"
-version = "0.5.0"
+version = "0.5.1"
 description = "SRT Studio — generate and edit SRT subtitles with Gemini"
 authors = ["you"]
 edition = "2021"

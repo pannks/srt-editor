@@ -1,4 +1,25 @@
-export type CaptionAnimation = "none" | "fade" | "pop" | "karaoke";
+export type CaptionAnimation =
+  | "none"
+  | "fade"
+  | "pop"
+  | "karaoke"
+  | "highlight"
+  | "word";
+
+/** Every animation, in picker order. */
+export const CAPTION_ANIMATIONS: CaptionAnimation[] = [
+  "none",
+  "fade",
+  "pop",
+  "karaoke",
+  "highlight",
+  "word",
+];
+
+/** Modes that reveal or highlight one word at a time (need word timing). */
+export function isWordAnimation(a: CaptionAnimation): boolean {
+  return a === "karaoke" || a === "highlight" || a === "word";
+}
 
 /** Where the caption box hangs off its anchor point, and how lines align. */
 export type CaptionAlignH = "left" | "center" | "right";
@@ -20,6 +41,8 @@ export interface CaptionLayer {
   bold: boolean;
   color: string;
   outlineColor: string;
+  /** Accent colour for the active word in karaoke/highlight/word modes. */
+  highlightColor: string;
   /** ASS outline width, roughly pixels at the video's own resolution. */
   outlineWidth: number;
   shadow: number;
@@ -85,6 +108,7 @@ const BASE_LAYER: Omit<CaptionLayer, "id" | "language" | "posY"> = {
   bold: true,
   color: "#ffffff",
   outlineColor: "#000000",
+  highlightColor: "#ffd400",
   outlineWidth: 2,
   shadow: 1,
   bgEnabled: false,

@@ -8,6 +8,33 @@ The version lives in `package.json` and is propagated to `src-tauri/Cargo.toml` 
 
 ## [Unreleased]
 
+## [0.5.1] — 2026-07-24
+
+### Added
+
+- **Word-by-word captions with Thai support** — two new caption animations join
+  Karaoke: **Highlight word** (the whole line stays up, the current word takes
+  the accent colour) and **One word** (a single word pops in at a time). Words
+  are split with the browser's own dictionary segmenter, so Thai and other
+  spaceless scripts get real per-word timing instead of one lumped run. The
+  preview and the burned MP4 reveal on the same schedule.
+- **Caption templates** — a visual gallery of one-click looks (Clean, Karaoke,
+  Word punch, Highlight, Neon, Tall caps, and two Thai presets). Each chip shows
+  the same sample phrase so the picker compares the style, not the words, and
+  applies to the selected line without moving it.
+- **Centre a caption on screen** — the Layout section gains *Centre across*
+  (horizontal only) and *Centre on screen* (dead centre) buttons, so a line
+  snaps back to the middle without dragging.
+- **Per-layer highlight colour** — the colour the word animations accent with,
+  editable whenever a word animation is active.
+
+### Fixed
+
+- **Karaoke no longer renders as black text** — the live preview drew the sweep
+  with a background-clip trick that collapsed to black; it now colours each word
+  directly off the playhead. The read and unread colours are both the layer's
+  own (Highlight and Text), so the unread word is finally settable.
+
 ## [0.5.0] — 2026-07-24
 
 ### Added

@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useAppStore } from "../state/store";
-import { captionText, type CaptionLayer } from "../lib/captions/types";
+import {
+  captionText,
+  isWordAnimation,
+  type CaptionLayer,
+} from "../lib/captions/types";
 import { wrapCaptionLines } from "../lib/captions/wrap";
+import { layoutWords, timedWords, type TimedWord } from "../lib/captions/words";
 import { findActiveBlock } from "../lib/blocks/active";
 import { getMedia } from "../lib/player";
 import type { SubtitleBlock } from "../lib/blocks/types";
@@ -16,8 +21,24 @@ function rgba(hex: string, opacity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${opacity})`;
 }
 
-/** Dim colour the karaoke sweep reveals from, matching the export's grey. */
-const KARAOKE_DIM = "#888888";
+/**
+ * The colour a word renders at for a word-driven animation, given the playhead.
+ * Mirrors the ASS export: karaoke fills the read words (past + current) to the
+ * accent while unread words stay the base text colour; highlight accents only
+ * the current word; word shows only the current (handled by the caller). Both
+ * the read and unread colours are the layer's own — nothing is hardcoded.
+ */
+function wordColor(
+  animation: CaptionLayer["animation"],
+  isActive: boolean,
+  isPast: boolean,
+  base: string,
+  accent: string,
+): string {
+  if (animation === "karaoke") return isActive || isPast ? accent : base;
+  if (animation === "highlight") return isActive ? accent : base;
+  return base;
+}
 
 /**
  * One caption layer, draggable and live-styled over the video. A render helper
@@ -26,6 +47,7 @@ const KARAOKE_DIM = "#888888";
 function LayerSpan({
   layer,
   block,
+  time,
   frameW,
   frameH,
   scale,
@@ -33,6 +55,8 @@ function LayerSpan({
 }: {
   layer: CaptionLayer;
   block: SubtitleBlock;
+  /** Playhead in seconds, clamped into the block for the word animations. */
+  time: number;
   frameW: number;
   frameH: number;
   scale: number;
@@ -51,14 +75,9 @@ function LayerSpan({
   // No floor: the export has none either, so a floor here would make small
   // captions look bigger in the preview than in the burned video.
   const fontPx = (layer.fontSizePct / 100) * frameH;
-  // Break lines with the shared wrapper so the preview matches the export.
-  const lines = wrapCaptionLines(
-    text,
-    layer.widthPct * frameW,
-    fontPx,
-    layer.fontFamily || "Arial",
-    layer.bold,
-  );
+  const family = layer.fontFamily || "Arial";
+  const maxWidthPx = layer.widthPct * frameW;
+
   const o = layer.outlineWidth * scale;
   const outlineShadows =
     layer.outlineWidth > 0
@@ -97,30 +116,66 @@ function LayerSpan({
   const tx = { left: "0%", center: "-50%", right: "-100%" }[layer.alignH];
   const ty = { top: "0%", middle: "-50%", bottom: "-100%" }[layer.alignV];
 
-  const karaoke = layer.animation === "karaoke";
-  const durationSec = Math.max(0.3, block.end - block.start);
+  const wordy = isWordAnimation(layer.animation);
 
-  // Karaoke reveals the colour left-to-right via a two-tone gradient clipped to
-  // the glyphs; the outline still draws from the glyph shape, not the fill.
-  const karaokeStyle: React.CSSProperties = karaoke
-    ? {
-        color: "transparent",
-        backgroundImage: `linear-gradient(90deg, ${layer.color} 0 50%, ${KARAOKE_DIM} 50% 100%)`,
-        backgroundSize: "200% 100%",
-        WebkitBackgroundClip: "text",
-        backgroundClip: "text",
-        // The animation moves the window from the dim half to the colour half.
-        ["--kara-dur" as string]: `${durationSec}s`,
-      }
-    : { color: layer.color };
+  // Static modes pre-wrap to whole lines; word modes lay out per word so each
+  // can colour or reveal on the playhead. Both use the shared measurer, so the
+  // breaks match the export.
+  const staticLines = wordy
+    ? []
+    : wrapCaptionLines(text, maxWidthPx, fontPx, family, layer.bold);
+  const wordLines: TimedWord[][] = wordy
+    ? layoutWords(
+        timedWords(text, block.start, block.end, layer.language),
+        maxWidthPx,
+        fontPx,
+        family,
+        layer.bold,
+      )
+    : [];
+
+  const renderBody = () => {
+    if (!wordy) return staticLines.join("\n");
+    return wordLines.map((line, li) => (
+      <span className="cap-line" key={li}>
+        {line.map((w, wi) => {
+          const isActive = time >= w.start && time < w.end;
+          const isPast = time >= w.end;
+          if (layer.animation === "word" && !isActive) return null;
+          return (
+            <span
+              key={wi}
+              className={`cap-word${isActive ? " active" : ""}`}
+              style={{
+                color: wordColor(
+                  layer.animation,
+                  isActive,
+                  isPast,
+                  layer.color,
+                  layer.highlightColor,
+                ),
+              }}
+            >
+              {w.text}
+            </span>
+          );
+        })}
+      </span>
+    ));
+  };
+
+  // Remount word content on the active word so `word`/`highlight` replay their
+  // pop; the block+animation key covers fade/pop for the whole caption.
+  const activeStart = wordy
+    ? wordLines.flat().find((w) => time >= w.start && time < w.end)?.start
+    : undefined;
 
   return (
     <span
-      // Remount on block/animation change so the CSS animation replays.
       key={`${block.id}-${layer.animation}`}
       className={`caption-preview anim-${layer.animation}${
-        selectedId === layer.id ? " selected" : ""
-      }`}
+        wordy ? " wordy" : ""
+      }${selectedId === layer.id ? " selected" : ""}`}
       style={{
         left: `${pos.x * 100}%`,
         top: `${pos.y * 100}%`,
@@ -134,11 +189,11 @@ function LayerSpan({
         fontSize: `${fontPx}px`,
         fontFamily: `"${layer.fontFamily}", sans-serif`,
         fontWeight: layer.bold ? 700 : 400,
+        color: layer.color,
         background: layer.bgEnabled
           ? rgba(layer.bgColor, layer.bgOpacity)
           : "transparent",
         textShadow: shadows,
-        ...karaokeStyle,
       }}
       onPointerDown={(e) => {
         e.preventDefault();
@@ -159,7 +214,14 @@ function LayerSpan({
         setDragPos(null);
       }}
     >
-      {lines.join("\n")}
+      {/* Inner key remounts the animated content when the active word changes. */}
+      {wordy ? (
+        <span key={activeStart ?? "none"} className="cap-words">
+          {renderBody()}
+        </span>
+      ) : (
+        renderBody()
+      )}
     </span>
   );
 }
@@ -227,6 +289,11 @@ export function CaptionPreview({
   // Outline/shadow are in video pixels; scale them to the on-screen frame.
   const scale = video?.videoHeight ? frameH / video.videoHeight : 0.3;
 
+  // When the playhead sits outside the previewed block (paused in the editor,
+  // showing the first block), clamp into it so word animations show a sensible
+  // mid-state instead of a blank or fully-dimmed caption.
+  const time = Math.min(active.end, Math.max(active.start, currentTime));
+
   return (
     <>
       {layers.map((layer) => (
@@ -234,6 +301,7 @@ export function CaptionPreview({
           key={layer.id}
           layer={layer}
           block={active}
+          time={time}
           frameW={frameW}
           frameH={frameH}
           scale={scale}

@@ -10,6 +10,7 @@ import {
   AlignVerticalJustifyEnd,
   AlignVerticalJustifyStart,
   Clapperboard,
+  Crosshair,
   Loader2,
   RotateCcw,
   Trash2,
@@ -18,7 +19,9 @@ import { useAppStore } from "../state/store";
 import { toast } from "../state/toasts";
 import { useT } from "../state/useT";
 import {
+  CAPTION_ANIMATIONS,
   CAPTION_FONTS,
+  isWordAnimation,
   MAX_FONT_PCT,
   MIN_FONT_PCT,
   type CaptionAlignH,
@@ -26,13 +29,14 @@ import {
   type CaptionAnimation,
   type CaptionLayer,
 } from "../lib/captions/types";
+import { CAPTION_TEMPLATES } from "../lib/captions/templates";
 import { buildAss } from "../lib/captions/ass";
 import { ensureCaptionFonts } from "../lib/captions/fonts";
 import { translatedLanguages } from "../lib/blocks/translations";
 import { languageLabel } from "../lib/i18n/languages";
 import { getMedia } from "../lib/player";
 
-const ANIMATIONS: CaptionAnimation[] = ["none", "fade", "pop", "karaoke"];
+const ANIMATIONS = CAPTION_ANIMATIONS;
 
 /** Segmented pickers for the box anchor; icons read faster than words here. */
 const ALIGN_H: { value: CaptionAlignH; Icon: typeof AlignLeft }[] = [
@@ -89,6 +93,12 @@ export function CaptionStudio() {
   const patch = (fields: Partial<CaptionLayer>) => {
     if (layer) updateLayer(layer.id, fields);
   };
+
+  // Whether the current template patch is already fully reflected on the layer,
+  // so the gallery can mark the active look.
+  const templateActive = (p: Partial<CaptionLayer>) =>
+    !!layer &&
+    (Object.keys(p) as (keyof CaptionLayer)[]).every((k) => layer[k] === p[k]);
 
   const canExport =
     mediaPath !== null &&
@@ -191,6 +201,51 @@ export function CaptionStudio() {
             </option>
           ))}
         </select>
+      </div>
+
+      {/* Template gallery: one click applies a whole look to the current line. */}
+      <div className="cap-templates">
+        <span className="cap-templates-label muted">{t("captions.templates")}</span>
+        <div className="cap-template-row">
+          {CAPTION_TEMPLATES.map((tpl) => {
+            const p = tpl.patch;
+            const accent =
+              p.animation && isWordAnimation(p.animation)
+                ? p.highlightColor ?? p.color ?? "#ffd400"
+                : undefined;
+            const outline = p.outlineColor ?? "#000000";
+            const ow = p.outlineWidth ?? 0;
+            const [head, ...rest] = tpl.sample.split(" ");
+            return (
+              <button
+                key={tpl.id}
+                className={`cap-template${templateActive(p) ? " current" : ""}`}
+                title={t(tpl.nameKey as Parameters<typeof t>[0])}
+                onClick={() => patch(p)}
+              >
+                <span
+                  className="cap-template-sample"
+                  style={{
+                    fontFamily: `"${p.fontFamily ?? "Arial"}", sans-serif`,
+                    fontWeight: p.bold ? 700 : 400,
+                    color: p.color ?? "#fff",
+                    textShadow:
+                      ow > 0
+                        ? `0 0 0 ${outline}, 1px 1px 0 ${outline}, -1px -1px 0 ${outline}`
+                        : undefined,
+                    background: p.bgEnabled ? p.bgColor ?? "#000" : undefined,
+                  }}
+                >
+                  <span style={accent ? { color: accent } : undefined}>{head}</span>
+                  {rest.length > 0 ? ` ${rest.join(" ")}` : ""}
+                </span>
+                <span className="cap-template-name">
+                  {t(tpl.nameKey as Parameters<typeof t>[0])}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {layer && (
@@ -311,6 +366,30 @@ export function CaptionStudio() {
                 <em>{Math.round(layer.widthPct * 100)}%</em>
               </span>
             </div>
+            <div className="cap-row">
+              <span>{t("captions.position")}</span>
+              <span className="cap-center-actions">
+                <button
+                  title={t("captions.centerH")}
+                  onClick={() => patch({ posX: 0.5, alignH: "center" })}
+                >
+                  <AlignCenter size={13} /> {t("captions.centerH")}
+                </button>
+                <button
+                  title={t("captions.center")}
+                  onClick={() =>
+                    patch({
+                      posX: 0.5,
+                      posY: 0.5,
+                      alignH: "center",
+                      alignV: "middle",
+                    })
+                  }
+                >
+                  <Crosshair size={13} /> {t("captions.center")}
+                </button>
+              </span>
+            </div>
           </div>
 
           {/* Colour */}
@@ -339,6 +418,16 @@ export function CaptionStudio() {
               />
               {t("captions.outlineColor")}
             </label>
+            {isWordAnimation(layer.animation) && (
+              <label className="cap-swatch">
+                <input
+                  type="color"
+                  value={layer.highlightColor}
+                  onChange={(e) => patch({ highlightColor: e.target.value })}
+                />
+                {t("captions.highlightColor")}
+              </label>
+            )}
             <div className="cap-row">
               <span>{t("captions.outline")}</span>
               <span className="cap-slider">
