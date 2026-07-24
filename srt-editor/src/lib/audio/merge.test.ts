@@ -27,6 +27,20 @@ describe("segmentsToBlocks", () => {
     expect(out[2].start).toBeGreaterThanOrEqual(out[1].end);
     expect(out[2].end).toBeGreaterThanOrEqual(out[2].start);
   });
+
+  it("does not let one oversized end collapse later blocks", () => {
+    // Chunk 2's first segment lands with a runaway end (spans to the file end).
+    // Following segments must keep their own timing, not zero out.
+    const out = segmentsToBlocks([
+      { start: 600, end: 1200, text: "chunk 2 item 1" },
+      { start: 605, end: 608, text: "chunk 2 item 2" },
+      { start: 610, end: 614, text: "chunk 2 item 3" },
+    ]);
+    expect(out[0]).toMatchObject({ start: 600, end: 605 });
+    expect(out[1]).toMatchObject({ start: 605, end: 608 });
+    expect(out[2]).toMatchObject({ start: 610, end: 614 });
+    for (const b of out) expect(b.end).toBeGreaterThan(b.start);
+  });
 });
 
 describe("parseSegmentsJson", () => {
